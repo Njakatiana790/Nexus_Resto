@@ -1,0 +1,1918 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="theme-color" content="#6C63FF"/>
+<link rel="manifest" href="manifest.json"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>Proforma Vente — Nexus Resto</title>
+<style>
+:root{
+  --pri:#6C63FF; --pri-dark:#5A52E0; --pri-soft:#EEEDFF;
+  --blue:#3B82F6; --blue-dark:#2563EB; --blue-soft:#EBF3FF;
+  --green:#10B981; --green-dark:#059669; --green-soft:#EAFBF4;
+  --red:#EF4444; --red-dark:#DC2626; --red-soft:#FEF0F0;
+  --ink:#1D2233; --muted:#6B7280; --line:#E4E7F0; --card:#FFFFFF;
+  --head:#F7F8FC; --bg:#E9EBF3;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;}
+body{font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;font-size:13.5px;color:var(--ink);background:var(--bg);padding:14px;overflow:hidden;}
+body::before{content:"";position:fixed;top:0;left:0;right:0;height:10px;background:linear-gradient(90deg,#6C63FF,#8B5CF6,#A78BFA);z-index:0;}
+button,input,select{font-family:inherit;font-size:inherit;color:inherit;}
+button{cursor:pointer;}
+
+/* ---- Fenêtre ---- */
+.win{position:relative;z-index:1;max-width:1040px;width:96vw;margin:10px auto;background:var(--card);border-radius:16px;box-shadow:0 18px 50px rgba(29,34,51,.18),0 2px 8px rgba(29,34,51,.08);display:flex;flex-direction:column;height:calc(100vh - 20px);max-height:96vh;overflow:hidden;border:1px solid #EFF1F7;}
+.win.maximized{max-width:none;width:100vw;margin:0;height:100vh;max-height:100vh;border-radius:0;}
+
+/* ---- Barre de titre ---- */
+.tb{display:flex;align-items:flex-start;gap:12px;padding:16px 20px 10px;flex:none;}
+.tb-ico{width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#7C74FF,#5B52E8);display:flex;align-items:center;justify-content:center;flex:none;box-shadow:0 4px 10px rgba(108,99,255,.35);}
+.tb-ico svg{width:20px;height:20px;stroke:#fff;}
+.tb-titles{flex:1;min-width:0;}
+.tb-titles h1{font-size:17px;font-weight:700;display:flex;align-items:center;gap:10px;flex-wrap:wrap;letter-spacing:-.2px;}
+.pill{display:inline-block;padding:3px 11px;border-radius:999px;font-size:11.5px;font-weight:600;background:var(--blue-soft);color:var(--blue-dark);}
+.pill.validee{background:var(--green-soft);color:var(--green-dark);}
+.pill.compta{background:var(--pri-soft);color:var(--pri-dark);}
+.pill.annulee{background:var(--red-soft);color:var(--red-dark);}
+.tb-titles p{font-size:12px;color:var(--muted);margin-top:3px;}
+.tb-btns{display:flex;gap:6px;}
+.tb-btns button{width:34px;height:32px;border:none;background:transparent;border-radius:8px;color:#9AA1B5;display:flex;align-items:center;justify-content:center;}
+.tb-btns button:hover{background:#F1F3F9;color:var(--ink);}
+.tb-btns button.close:hover{background:var(--red-soft);color:var(--red-dark);}
+.tb-btns svg{width:16px;height:16px;stroke:currentColor;}
+
+/* ---- Barre d'outils ---- */
+.toolbar{display:flex;align-items:center;gap:8px;padding:6px 20px 14px;flex-wrap:wrap;flex:none;border-bottom:1px solid #F0F2F8;}
+.btn{display:inline-flex;align-items:center;gap:7px;border-radius:9px;padding:9px 15px;font-weight:600;font-size:13px;border:1px solid transparent;background:#fff;transition:.12s;}
+.btn svg{width:15px;height:15px;stroke:currentColor;flex:none;}
+.btn-primary{background:var(--pri);color:#fff;box-shadow:0 4px 12px rgba(108,99,255,.35);}
+.btn-primary:hover{background:var(--pri-dark);}
+.btn-ghost{border-color:var(--line);color:#3A4157;background:#fff;}
+.btn-ghost:hover{border-color:#C9CEE0;background:#FAFBFF;}
+.btn-red{border-color:#F5C6C6;color:var(--red-dark);background:#fff;}
+.btn-red:hover{background:var(--red-soft);}
+.btn-blue{border-color:#BFDBFE;color:var(--blue-dark);background:#fff;}
+.btn-blue:hover{background:var(--blue-soft);}
+.btn-green{border-color:#A7F3D0;color:var(--green-dark);background:#fff;}
+.btn-green:hover{background:var(--green-soft);}
+.toolbar .sub{margin-left:auto;font-size:13.5px;font-weight:600;color:var(--ink);}
+.toolbar .sub b{color:var(--pri);font-weight:800;}
+
+/* ---- Contenu ---- */
+.content{flex:1;overflow-y:auto;overflow-x:hidden;padding:14px 20px 20px;display:flex;flex-direction:column;gap:14px;min-height:0;}
+.content::-webkit-scrollbar{width:8px;}
+.content::-webkit-scrollbar-track{background:transparent;}
+.content::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:4px;}
+.content::-webkit-scrollbar-thumb:hover{background:#94A3B8;}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:none;}
+@media(max-width:860px){.panels{grid-template-columns:1fr;}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:13px;overflow:hidden;}
+.card-hd{display:flex;align-items:center;gap:8px;background:var(--head);border-bottom:1px solid #EDEFF6;padding:11px 16px;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#3A4157;}
+.card-hd .hi{width:22px;height:22px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex:none;}
+.card-hd .hi svg{width:13px;height:13px;stroke:#fff;}
+.hi.pri{background:var(--pri);} .hi.blue{background:var(--blue);} .hi.green{background:var(--green);}
+.card-bd{padding:12px 14px 14px;}
+
+/* ---- Champs ---- */
+.fld-grid{display:grid;gap:12px 14px;}
+.g2{grid-template-columns:1fr 1fr;}
+.g3{grid-template-columns:1fr 1fr 1fr;}
+.fld{display:flex;flex-direction:column;gap:5px;min-width:0;}
+.fld label{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);}
+.fld input,.fld select{border:1px solid var(--line);background:#fff;border-radius:9px;padding:8px 11px;height:36px;outline:none;width:100%;transition:.12s;}
+.fld input:focus,.fld select:focus{border-color:#B4B0FF;box-shadow:0 0 0 3px rgba(108,99,255,.14);}
+.fld select{appearance:auto;}
+.fld.row2{flex-direction:row;align-items:center;gap:8px;}
+.fld.row2 label{display:none;}
+.client-row{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:end;margin-bottom:12px;}
+.client-row .fld{margin:0;}
+
+/* ---- Ajouter article ---- */
+.addbar{display:flex;align-items:center;gap:12px;padding:11px 16px;flex-wrap:wrap;flex:none;}
+.addbar .lb{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13px;flex:none;}
+.addbar .lb svg{width:16px;height:16px;stroke:var(--pri);}
+.ac{position:relative;flex:1;min-width:230px;}
+.ac-input{width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 11px;height:36px;outline:none;background:#fff;}
+.ac-input:focus{border-color:#B4B0FF;box-shadow:0 0 0 3px rgba(108,99,255,.14);}
+.ac-list{position:absolute;top:40px;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 32px rgba(29,34,51,.16);max-height:236px;overflow-y:auto;display:none;z-index:60;}
+.ac-list.open{display:block;}
+.ac-item{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid #F3F4F9;}
+.ac-item:last-child{border-bottom:none;}
+.ac-item:hover,.ac-item.hi{background:var(--pri-soft);}
+.ac-item .ac-code{color:var(--muted);font-size:11.5px;white-space:nowrap;}
+.ac-item .ac-p{font-weight:700;white-space:nowrap;}
+.ac-empty{padding:10px 12px;color:var(--muted);font-style:italic;font-size:12.5px;}
+#code-produit-list{top:100%;left:0;right:0;margin-top:3px;}
+
+/* ---- Tableau ---- */
+.tbl-wrap{border:1px solid var(--line);border-radius:13px;overflow:hidden;background:#fff;flex:none;min-height:120px;display:flex;flex-direction:column;}
+.tbl-scroll{overflow-x:auto;overflow-y:visible;}
+table.grid{width:100%;border-collapse:collapse;min-width:860px;}
+table.grid th{background:var(--head);text-align:left;padding:12px 10px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#3A4157;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:1;}
+table.grid th.r,table.grid td.r{text-align:right;}
+table.grid td{border-bottom:1px solid #F1F3F9;padding:4px 6px;height:38px;}
+table.grid tr:last-child td{border-bottom:none;}
+table.grid tr:hover td{background:#FAFBFF;}
+table.grid tr.sel td{background:var(--pri-soft)!important;}
+.g-in{border:1px solid var(--line);background:#fff;padding:4px 8px;width:100%;height:30px;font-size:12.5px;outline:none;border-radius:6px;}
+.g-in:focus{border-color:#B4B0FF;box-shadow:0 0 0 2px rgba(108,99,255,.12);}
+.g-in[readonly]{background:#F5F6FA;color:#5B6172;text-align:right;font-weight:600;}
+.cell-net{font-weight:600;color:#3A4157;text-align:right;padding-right:10px!important;white-space:nowrap;}
+.cell-tot{font-weight:800;text-align:right;padding-right:6px!important;white-space:nowrap;}
+.row-del{border:none;background:transparent;color:#AEB4C6;padding:4px 6px;border-radius:6px;display:inline-flex;vertical-align:middle;}
+.row-del svg{width:15px;height:15px;stroke:currentColor;}
+.row-del:hover{background:var(--red-soft);color:var(--red-dark);}
+.empty-area{min-height:80px;}
+
+/* ---- Pied ---- */
+.foot{flex:none;display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:8px 0 4px;border-top:none;background:transparent;}
+.totals{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 18px;min-width:280px;box-shadow:0 1px 3px rgba(0,0,0,.03);}
+.totals .tr{display:flex;justify-content:space-between;gap:30px;padding:3px 0;font-size:13px;color:#4A5169;}
+.totals .tr b{font-weight:700;color:var(--ink);}
+.totals .tr.big{border-top:1px solid #EEF0F6;margin-top:6px;padding-top:8px;font-size:14.5px;}
+.totals .tr.big span{font-weight:800;color:var(--ink);}
+.totals .tr.big b{color:var(--blue-dark);font-size:16px;font-weight:800;}
+.foot-btns{display:flex;gap:10px;padding-bottom:2px;}
+.foot-btns .btn{padding:10px 22px;border-radius:9px;}
+
+/* ---- Toast ---- */
+.toast{position:fixed;right:20px;bottom:20px;background:var(--ink);color:#fff;padding:11px 16px;border-radius:10px;font-size:13px;box-shadow:0 8px 24px rgba(0,0,0,.25);opacity:0;transform:translateY(6px);transition:.25s;pointer-events:none;z-index:900;}
+.toast.show{opacity:1;transform:none;}
+.toast.ok{background:var(--green-dark);}
+.toast.err{background:var(--red-dark);}
+
+/* ---- Clavier Tactile / Saisie Rapide Produits ---- */
+.pos-touch-card{background:var(--card);border:1px solid var(--line);border-radius:13px;overflow:hidden;flex:none;}
+.pos-touch-hd{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#F8FAFC;border-bottom:1px solid #EDEFF6;}
+.pos-touch-title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:12.5px;color:#334155;text-transform:uppercase;letter-spacing:.04em;}
+.pos-touch-actions{display:flex;gap:8px;align-items:center;}
+.pos-cats{display:flex;gap:6px;padding:8px 14px;overflow-x:auto;background:#F1F5F9;border-bottom:1px solid #E2E8F0;align-items:center;}
+.pos-cats::-webkit-scrollbar{height:5px;}
+.pos-cats::-webkit-scrollbar-thumb{background:#CBD5E1;border-radius:3px;}
+.pos-cat-btn{padding:7px 14px;border-radius:7px;font-size:11.5px;font-weight:800;border:1px solid rgba(0,0,0,.15);cursor:pointer;white-space:nowrap;transition:.12s;text-transform:uppercase;}
+.pos-cat-btn:hover{filter:brightness(0.95);transform:translateY(-1px);}
+.pos-cat-btn.active{box-shadow:0 0 0 2.5px #1E293B, inset 0 0 0 1px #fff;transform:translateY(-1px);}
+.pos-grid-wrap{padding:10px 14px 14px;background:#FAFAFC;}
+.pos-grid{display:grid;grid-template-columns:repeat(8, 1fr);gap:7px;}
+@media(max-width:960px){.pos-grid{grid-template-columns:repeat(4, 1fr);}}
+.pos-btn{min-height:54px;border:1px solid #CBD5E1;border-radius:7px;padding:6px 8px;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;cursor:pointer;transition:.12s;user-select:none;background:#fff;}
+.pos-btn:hover{filter:brightness(0.94);transform:scale(1.02);box-shadow:0 3px 8px rgba(0,0,0,.1);}
+.pos-btn:active{transform:scale(0.97);}
+.pos-btn-name{font-size:11px;font-weight:800;line-height:1.2;text-transform:uppercase;max-height:28px;overflow:hidden;}
+.pos-btn-price{font-size:10.5px;font-weight:700;opacity:.88;margin-top:3px;}
+.pos-btn-empty{background:#F8FAFC;border:1px dashed #CBD5E1;min-height:54px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:#94A3B8;font-size:11px;cursor:pointer;}
+.pos-btn-empty:hover{background:#F1F5F9;border-color:#94A3B8;}
+
+/* ---- Fenêtre Modale : Définition des boutons produits ---- */
+.def-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.6);backdrop-filter:blur(3px);z-index:800;display:none;align-items:center;justify-content:center;padding:16px;}
+.def-modal-overlay.open{display:flex;}
+.def-modal{background:#fff;width:1020px;max-width:98vw;max-height:94vh;border-radius:14px;box-shadow:0 25px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden;border:1px solid #CBD5E1;}
+.def-modal-hd{background:linear-gradient(135deg, #2563EB, #1D4ED8);color:#fff;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;flex:none;}
+.def-modal-hd-title{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:700;}
+.def-modal-hd-title svg{width:20px;height:20px;}
+.def-modal-close{background:none;border:none;color:#fff;font-size:20px;cursor:pointer;line-height:1;width:30px;height:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;opacity:.85;}
+.def-modal-close:hover{background:rgba(255,255,255,.2);opacity:1;}
+.def-modal-body{padding:14px 18px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;flex:1;}
+.def-top-bar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-bottom:8px;border-bottom:1px solid #E2E8F0;font-size:12.5px;}
+.def-top-bar .grp{display:flex;align-items:center;gap:6px;}
+.def-top-bar select,.def-top-bar input{padding:5px 8px;border:1px solid #CBD5E1;border-radius:6px;font-size:12.5px;background:#fff;}
+.def-cats-section{display:flex;flex-direction:column;gap:6px;}
+.def-cats-lbl{font-size:12px;font-weight:700;color:#475569;}
+.def-cats-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.def-cat-pill{padding:6px 12px;border-radius:6px;font-size:11.5px;font-weight:800;border:1px solid rgba(0,0,0,.15);cursor:pointer;text-transform:uppercase;}
+.def-cat-pill.active{box-shadow:0 0 0 2.5px #0F172A;}
+.def-cats-ctrls{display:flex;align-items:center;gap:6px;margin-top:4px;}
+.def-main-grid-area{display:grid;grid-template-columns:1fr 290px;gap:16px;align-items:start;}
+@media(max-width:900px){.def-main-grid-area{grid-template-columns:1fr;}}
+.def-grid-box{display:flex;flex-direction:column;gap:8px;}
+.def-grid-lbl{font-size:12px;font-weight:700;color:#475569;}
+.def-slots-grid{display:grid;grid-template-columns:repeat(8, 1fr);gap:6px;background:#F8FAFC;padding:10px;border:1px solid #E2E8F0;border-radius:8px;min-height:300px;}
+.def-slot{min-height:56px;background:#fff;border:1px solid #CBD5E1;border-radius:6px;padding:4px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;cursor:pointer;font-size:11px;user-select:none;transition:.12s;}
+.def-slot:hover{border-color:#6366F1;background:#F5F3FF;}
+.def-slot.selected{outline:2.5px solid #2563EB;outline-offset:1px;z-index:2;}
+.def-slot .slot-title{font-weight:800;line-height:1.15;max-height:26px;overflow:hidden;}
+.def-slot .slot-price{font-size:10px;opacity:.85;margin-top:2px;}
+.def-grid-arrows{display:flex;align-items:center;justify-content:center;gap:8px;padding-top:4px;}
+.def-grid-arrows button{padding:5px 12px;border:1px solid #CBD5E1;background:#fff;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;}
+.def-grid-arrows button:hover{background:#F1F5F9;}
+.def-side-panel{background:#F8FAFC;border:1px solid #E2E8F0;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:10px;}
+.def-side-row{display:flex;flex-direction:column;gap:4px;}
+.def-side-row label{font-size:11px;font-weight:700;color:#475569;}
+.def-side-row input,.def-side-row select{padding:6px 9px;border:1px solid #CBD5E1;border-radius:6px;font-size:12.5px;background:#fff;}
+.def-colors-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.def-palette{display:grid;grid-template-columns:repeat(8, 1fr);gap:4px;padding:4px;background:#fff;border:1px solid #E2E8F0;border-radius:6px;}
+.def-swatch{width:100%;height:22px;border-radius:4px;border:1px solid rgba(0,0,0,.15);cursor:pointer;transition:.1s;}
+.def-swatch:hover{transform:scale(1.15);box-shadow:0 2px 5px rgba(0,0,0,.2);z-index:1;}
+.def-side-btns{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;}
+.def-side-btns button{padding:6px 8px;border:1px solid #CBD5E1;background:#fff;border-radius:6px;font-size:11.5px;font-weight:600;color:#334155;cursor:pointer;}
+.def-side-btns button:hover{background:#F1F5F9;border-color:#94A3B8;}
+.def-modal-ft{padding:10px 18px;background:#F8FAFC;border-top:1px solid #E2E8F0;display:flex;justify-content:flex-end;gap:10px;}
+
+/* ---- Adaptation mobile ---- */
+@media(max-width:700px){
+  body{padding:6px;}
+  .win{width:100%;margin:6px auto 0;height:calc(100vh - 16px);max-height:calc(100vh - 16px);border-radius:14px;}
+
+  /* En-tête */
+  .tb{padding:12px 14px 6px;gap:10px;align-items:center;}
+  .tb-ico{width:34px;height:34px;border-radius:9px;}
+  .tb-ico svg{width:17px;height:17px;}
+  .tb-titles h1{font-size:15px;gap:7px;}
+  .tb-titles p{display:none;}
+  .pill{font-size:10.5px;padding:2px 9px;}
+  .tb-btns button{width:30px;height:30px;}
+
+  /* Barre d'outils */
+  .toolbar{padding:8px 14px 10px;gap:6px;}
+  .btn{padding:8px 11px;font-size:12.5px;border-radius:8px;gap:5px;}
+  .btn svg{width:14px;height:14px;}
+  .toolbar .sub{font-size:12.5px;}
+
+  /* Contenu : une colonne partout */
+  .content{padding:12px 12px 16px;gap:12px;}
+  .panels{gap:10px;}
+  .card-bd{padding:10px 12px 12px;}
+  .fld-grid.g2,.fld-grid.g3{grid-template-columns:1fr;}
+  .client-row{grid-template-columns:1fr;gap:8px;}
+  .addbar{padding:10px 12px;gap:8px;}
+  .totals{min-width:0;width:100%;padding:10px 14px;}
+  .foot-btns .btn{padding:10px 16px;}
+
+  /* Empeche le zoom auto iOS a la focus dans les champs */
+  input,select,textarea,.g-in,.ac-input,.fld input,.fld select{font-size:16px;}
+
+  /* Modale "Definition des boutons" : plein ecran, grille 4 colonnes */
+  .def-modal-overlay{padding:0;}
+  .def-modal{width:100%;max-width:100%;height:100%;max-height:100%;border-radius:0;border:none;}
+  .def-modal-hd{padding:12px 14px;}
+  .def-modal-body{padding:12px 14px;}
+  .def-top-bar{gap:10px;}
+  .def-slots-grid{grid-template-columns:repeat(4,1fr);min-height:0;}
+  .def-colors-row{grid-template-columns:1fr;}
+  .def-grid-arrows{flex-wrap:wrap;}
+  .def-modal-ft{padding:10px 14px;}
+  .def-modal-ft .btn{flex:1;justify-content:center;}
+}
+@media(max-width:480px){
+  .btn{padding:8px 10px;font-size:12px;}
+  .pos-grid{grid-template-columns:repeat(3,1fr);}
+  .def-slots-grid{grid-template-columns:repeat(3,1fr);}
+  .def-slot{min-height:64px;}
+}
+
+@media print{body *{visibility:hidden;}#print-area,#print-area *{visibility:visible;}#print-area{position:absolute;left:0;top:0;}}
+#print-area{display:none;}
+</style>
+</head>
+<body>
+
+<div class="win" id="win">
+  <div class="tb">
+    <div class="tb-ico">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+    </div>
+    <div class="tb-titles">
+      <h1>
+        <span id="tb-title">Proforma Vente N° VTE-000000</span>
+        <span class="pill" id="tb-pill">Brouillon</span>
+        <span id="sb-status-badge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; background:#ECFDF5; color:#059669; display:inline-flex; align-items:center; gap:4px; margin-left:6px;"><span style="width:6px; height:6px; border-radius:50%; background:#10B981;"></span>Supabase</span>
+      </h1>
+      <p>Gestion commerciale • Saisie de document</p>
+    </div>
+    <div class="tb-btns">
+      <button title="Réduire" onclick="minWin()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+      <button title="Agrandir" onclick="maxWin()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+      <button class="close" title="Fermer" onclick="closeWin()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn btn-primary" onclick="saveDoc()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Enregistrer</button>
+    <button class="btn btn-ghost" onclick="printDoc()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimer</button>
+    <button class="btn btn-red" onclick="clearLines()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Vider</button>
+    <button class="btn btn-blue" onclick="validateDoc()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Valider</button>
+    <button class="btn btn-ghost" onclick="togglePosPad()" title="Afficher / Masquer la saisie par boutons tactiles"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Boutons Rapides</button>
+    <button class="btn btn-ghost" onclick="openDefBoutonsModal()" title="Ouvrir la fenêtre de configuration des boutons produits"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Définir boutons</button>
+    <div class="sub">Sous-total HT : <b id="hd-subtotal">0 Ar</b></div>
+  </div>
+
+  <div class="content">
+    <div class="panels">
+      <div class="card">
+        <div class="card-hd"><span class="hi pri"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></span>Document &amp; Tiers</div>
+        <div class="card-bd">
+          <div class="fld-grid g2">
+            <div class="fld"><label>Type de document</label>
+              <input id="f-type" value="Proforma Vente" oninput="syncTitle()"/>
+            </div>
+            <div class="fld"><label>N° pièce</label><input id="f-num"/></div>
+          </div>
+          <div class="client-row" style="margin-top:12px;">
+            <div class="fld"><label>Client</label><input id="f-ccode" placeholder="(Code)"/></div>
+            <div class="fld"><label>&nbsp;</label>
+              <select id="f-client" onchange="pickClient()"><option value="">-- Sélectionner le client --</option></select>
+            </div>
+          </div>
+          <div class="fld" id="f-agence-row" style="display:none; margin-top:8px;">
+            <label>Nom de l'agence</label>
+            <div style="display:flex; gap:6px;">
+              <input id="f-agence" placeholder="Ex : MALAGASYA TRAVEL" autocomplete="off"
+                     onkeydown="agenceKeydown(event)"/>
+              <button type="button" onclick="validerAgence()"
+                      style="padding:6px 16px;border:none;border-radius:8px;background:#6C63FF;color:#fff;font-weight:700;cursor:pointer;white-space:nowrap;">Valider</button>
+            </div>
+          </div>
+          <div class="fld-grid g2">
+            <div class="fld"><label>Date</label><input id="f-date" type="date"/></div>
+            <div class="fld"><label>Statut</label>
+              <select id="f-statut" onchange="syncTitle()">
+                <option>Brouillon</option>
+                <option>Validée</option>
+                <option>Comptabilisée</option>
+                <option>Annulée</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd"><span class="hi blue"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg></span>Expédition &amp; Paramètres</div>
+        <div class="card-bd">
+          <div class="fld-grid g2">
+            <div class="fld"><label>Dépôt livraison</label>
+              <select id="f-depot">
+                <option>DP01 DEPOT PRINCIPALE</option>
+                <option selected>DP02 DEPOT RESTO</option>
+              </select>
+            </div>
+            <div class="fld"><label>Référence client</label><input id="f-ref" placeholder="Optionnel"/></div>
+          </div>
+          <div class="fld-grid g3" style="margin-top:12px;">
+            <div class="fld"><label>Représentant</label>
+              <select id="f-repr"><option>Aucun</option><option>RABE Jean</option><option>ANDRIANA Solo</option></select>
+            </div>
+            <div class="fld"><label>Affaire</label>
+              <select id="f-aff"><option>Aucune</option><option>AFF-001 Livraison zone nord</option><option>AFF-002 Événement hôtel</option></select>
+            </div>
+            <div class="fld"><label>Mode expéd.</label>
+              <select id="f-mode"><option>Standard</option><option>Express</option><option>Retrait client</option></select>
+            </div>
+          </div>
+          <div class="fld-grid g3" style="margin-top:12px;">
+            <div class="fld"><label>Entête 1</label><input id="f-entete"/></div>
+            <div class="fld"><label>Poids net</label><input id="f-pn" style="text-align:right;" value="0,000"/></div>
+            <div class="fld"><label>Poids brut</label><input id="f-pb" style="text-align:right;" value="0,000"/></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="addbar">
+        <span class="lb"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>Ajouter article :</span>
+        <div class="ac" id="ac">
+          <input id="f-art" class="ac-input" autocomplete="off" spellcheck="false" placeholder="-- Choisir un article à insérer --"
+                 oninput="acFilter()" onfocus="acFilter()" onkeydown="acKeys(event)"/>
+          <div class="ac-list" id="ac-list"></div>
+        </div>
+        <button class="btn btn-primary" onclick="addArticle()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Ajouter</button>
+        <button class="btn btn-ghost" onclick="addManual()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Ligne manuelle</button>
+        <button class="btn btn-ghost" onclick="togglePosPad()" title="Afficher ou masquer les boutons de saisie rapide"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Boutons tactiles</button>
+        <button class="btn btn-ghost" onclick="openDefBoutonsModal()" title="Définir et configurer les boutons de saisie rapide"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Définir</button>
+      </div>
+    </div>
+
+    <!-- Clavier Tactile / Saisie Rapide par Boutons Produits -->
+    <div class="card pos-touch-card" id="pos-touch-pad">
+      <div class="pos-touch-hd">
+        <div class="pos-touch-title">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+          Saisie Rapide par Boutons Produits (Cliquez pour ajouter au tableau)
+        </div>
+        <div class="pos-touch-actions">
+          <button type="button" class="btn btn-ghost" style="padding:4px 10px; font-size:11.5px;" onclick="openDefBoutonsModal()" title="Ouvrir la fenêtre de définition des boutons"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Définir les boutons</button>
+          <button type="button" class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" onclick="togglePosPad()" title="Masquer">✕</button>
+        </div>
+      </div>
+      <div class="pos-cats" id="pos-touch-cats"></div>
+      <div class="pos-grid-wrap">
+        <div class="pos-grid" id="pos-touch-grid"></div>
+      </div>
+    </div>
+
+    <div class="tbl-wrap">
+      <div class="tbl-scroll">
+        <table class="grid">
+          <thead><tr>
+            <th style="width:110px;">Référence</th>
+            <th>Désignation</th>
+            <th class="r" style="width:85px;">P.U. HT</th>
+            <th style="width:70px;text-align:center;">Qté</th>
+            <th style="width:100px;text-align:center;">Cond.</th>
+            <th class="r" style="width:70px;">Rem.<br/>%</th>
+            <th class="r" style="width:65px;">TVA %</th>
+            <th class="r" style="width:85px;">P.U. net</th>
+            <th class="r" style="width:110px;">Total HT</th>
+          </tr></thead>
+          <tbody id="tbody"></tbody>
+        </table>
+        <div class="empty-area" id="empty"></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <div class="totals">
+        <div class="tr"><span>Sous-total HT :</span><b id="t-ht">0,00 Ar</b></div>
+        <div class="tr"><span>Total TVA :</span><b id="t-tva">0,00 Ar</b></div>
+        <div class="tr big"><span>TotalTTC :</span><b id="t-ttc">0,00 Ar</b></div>
+      </div>
+      <div class="foot-btns">
+        <button class="btn btn-ghost" onclick="resetAll()">Annuler</button>
+        <button class="btn btn-primary" onclick="saveDoc()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Enregistrer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre Modale : Définition des boutons produits (conforme image 5) -->
+<div class="def-modal-overlay" id="modal-def-boutons" onclick="if(event.target===this)closeDefBoutonsModal()">
+  <div class="def-modal">
+    <div class="def-modal-hd">
+      <div class="def-modal-hd-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="10" y2="8"/><line x1="14" y1="8" x2="14" y2="8"/><line x1="18" y1="8" x2="18" y2="8"/></svg>
+        Définition des boutons produits
+      </div>
+      <button class="def-modal-close" onclick="closeDefBoutonsModal()" title="Fermer">✕</button>
+    </div>
+    
+    <div class="def-modal-body">
+      <!-- Top Bar -->
+      <div class="def-top-bar">
+        <div class="grp">
+          <label><b>Point de ventes :</b></label>
+          <select id="def-pv">
+            <option>Hôtel</option>
+            <option selected>Restaurant</option>
+            <option>Bar</option>
+          </select>
+        </div>
+        <div class="grp">
+          <label><b>Catégorie :</b></label>
+          <select id="def-cat-main">
+            <option>Générale</option>
+            <option>Carte Resto</option>
+            <option>Boissons &amp; Bar</option>
+          </select>
+          <button type="button" class="btn btn-ghost" style="padding:4px 9px; font-size:11px;" onclick="defDeleteCat()">Supprimer la catégorie</button>
+        </div>
+      </div>
+
+      <!-- Sous-Catégories row -->
+      <div class="def-cats-section">
+        <div class="def-cats-lbl">Sous-Catégories :</div>
+        <div class="def-cats-row" id="def-cats-pills"></div>
+        <div class="def-cats-ctrls">
+          <button type="button" class="btn btn-ghost" style="padding:4px 9px;" onclick="defMoveCat(-1)" title="Déplacer vers la gauche">◀</button>
+          <button type="button" class="btn btn-ghost" style="padding:4px 10px; font-size:11px;" onclick="defRemoveCat()">Retirer la sous-catégorie</button>
+          <button type="button" class="btn btn-ghost" style="padding:4px 9px;" onclick="defMoveCat(1)" title="Déplacer vers la droite">▶</button>
+          <button type="button" class="btn btn-ghost" style="padding:4px 10px; font-size:11px; margin-left:auto;" onclick="defAddCat()">+ Nouvelle sous-catégorie</button>
+          <div class="grp" style="margin-left:12px;">
+            <label style="font-size:11.5px; font-weight:700;">Code Catégorie :</label>
+            <input id="def-cat-code" style="width:110px;" onchange="defUpdateCatCode(this.value)"/>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Area : Grid (8x5) + Side Properties -->
+      <div class="def-main-grid-area">
+        <div class="def-grid-box">
+          <div class="def-grid-lbl">Produits de vente : (cliquez sur une case pour la sélectionner et la configurer)</div>
+          <div class="def-slots-grid" id="def-slots-grid"></div>
+          <div class="def-grid-arrows">
+            <button type="button" title="Déplacer à gauche" onclick="defMoveSlot(-1,0)">◀</button>
+            <button type="button" title="Déplacer vers le haut" onclick="defMoveSlot(0,-1)">▲</button>
+            <button type="button" class="btn btn-red" style="padding:5px 14px; font-size:11.5px;" onclick="defRemoveSlot()">Retirer le bouton produit</button>
+            <button type="button" title="Déplacer vers le bas" onclick="defMoveSlot(0,1)">▼</button>
+            <button type="button" title="Déplacer à droite" onclick="defMoveSlot(1,0)">▶</button>
+          </div>
+        </div>
+
+        <!-- Side panel -->
+        <div class="def-side-panel">
+          <div class="def-side-row">
+            <label>Famille Vente :</label>
+            <div style="display:flex; gap:6px;">
+              <select id="def-famille" style="flex:1;" onchange="chargerArticlesPourBoutons(this.value)">
+                <option value="Toutes les familles">Toutes les familles</option>
+              </select>
+              <button type="button" class="btn btn-ghost" style="padding:4px 8px; font-size:11px;" onclick="chargerArticlesPourBoutons($('def-famille').value)">Actualiser</button>
+            </div>
+          </div>
+
+          <div class="def-side-row">
+            <label>Code Produit :</label>
+            <div style="position:relative;">
+              <input id="code-produit-select" class="ac-input" autocomplete="off" spellcheck="false"
+                     placeholder="-- Choisir un produit --"
+                     onfocus="defProduitFocus()" oninput="defProduitFilter()"
+                     onkeydown="defProduitKeys(event)" onblur="defProduitBlur()"/>
+              <div id="code-produit-list" class="ac-list"></div>
+            </div>
+          </div>
+
+          <div class="def-side-row">
+            <label>Libellé bouton :</label>
+            <input id="def-btn-label" oninput="defApplyCurrentEdit()"/>
+          </div>
+
+          <div class="def-side-row">
+            <label>Prix unitaire (Ar) :</label>
+            <input id="def-btn-price" type="number" oninput="defApplyCurrentEdit()"/>
+          </div>
+
+          <div class="def-colors-row">
+            <div class="def-side-row">
+              <label>Fond :</label>
+              <div style="display:flex; align-items:center; gap:4px;">
+                <input type="color" id="def-bg-picker" style="width:30px; height:28px; padding:0; border:none; cursor:pointer;" onchange="defSetColor('bg',this.value)"/>
+                <input id="def-bg-text" style="width:75px; text-transform:uppercase;" onchange="defSetColor('bg',this.value)"/>
+              </div>
+            </div>
+            <div class="def-side-row">
+              <label>Texte :</label>
+              <div style="display:flex; align-items:center; gap:4px;">
+                <input type="color" id="def-fg-picker" style="width:30px; height:28px; padding:0; border:none; cursor:pointer;" onchange="defSetColor('fg',this.value)"/>
+                <input id="def-fg-text" style="width:75px; text-transform:uppercase;" onchange="defSetColor('fg',this.value)"/>
+              </div>
+            </div>
+          </div>
+
+          <div class="def-side-row">
+            <label>Palette de couleurs rapides :</label>
+            <div class="def-palette" id="def-palette"></div>
+          </div>
+
+          <div class="def-side-btns">
+            <button type="button" onclick="defCopyFormat()">Copier Format</button>
+            <button type="button" onclick="defResetCurrentSlot()">Réinit. Bouton</button>
+            <button type="button" onclick="defResetAllCat()">Réinit. All</button>
+            <button type="button" onclick="defColorCat()">Couleur Categ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="def-modal-ft">
+      <button class="btn btn-ghost" onclick="closeDefBoutonsModal()">Fermer</button>
+      <button class="btn btn-primary" onclick="defSaveAndClose()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> Enregistrer &amp; Appliquer</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="print-area"></div>
+
+<script>
+'use strict';
+
+// ==========================================================================
+// SUPABASE CLIENT INITIALIZATION & CONFIGURATION
+// ==========================================================================
+const SUPABASE_URL = 'https://rmhgvkmfyubtrekfzbnc.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtaGd2a21meXVidHJla2Z6Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4MjY4NTAsImV4cCI6MjA4NzQwMjg1MH0.KRNnwfIrtCO6W7et7MW-xMCFL_vPZTUnyfmhwX9XOaM';
+var supabaseClient = null;
+var ARTICLES_MAP = {};
+
+function getSupabase(){
+  if (supabaseClient) return supabaseClient;
+  if (window.supabase && typeof window.supabase.createClient === 'function') {
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    return supabaseClient;
+  }
+  return null;
+}
+
+// Récupération UNIQUEMENT des articles destinés à la vente
+async function chargerArticlesPourBoutons(familleFiltre = null) {
+  var sb = getSupabase();
+  var select = $('code-produit-select') || $('def-prod-select');
+  if (select) {
+    select.value = '';
+    select.placeholder = '-- Chargement des produits Supabase... --';
+  }
+
+  if (!sb) {
+    console.warn('Supabase JS non encore initialisé.');
+    populateArticlesSelect([]);
+    updateSbBadge(false);
+    return;
+  }
+
+  try {
+    let query = sb
+      .from('stock_items')
+      .select('cArticle, article, prixVente, cFamille, nomenclature, composition')
+      .eq('est_vendu', true)      // <-- Filtre clé : uniquement les ventes
+      .order('article', { ascending: true });
+
+    if (familleFiltre && familleFiltre !== 'Toutes les familles') {
+      query = query.eq('cFamille', familleFiltre);
+    }
+
+    let { data: articles, error } = await query;
+    if (error) {
+      console.error('Requête Supabase est_vendu échouée :', error.message);
+      populateArticlesSelect([]);
+      updateSbBadge(false);
+      return;
+    }
+
+    if (articles && articles.length > 0) {
+      processFetchedArticles(articles);
+      updateFamillesDropdown(articles);
+    }
+    populateArticlesSelect(articles || []);
+    updateSbBadge(true);
+  } catch (err) {
+    console.error('Erreur Supabase chargerArticlesPourBoutons :', err);
+    populateArticlesSelect([]);
+    updateSbBadge(false);
+  }
+}
+
+function processFetchedArticles(rawList){
+  rawList.forEach(function(art){
+    var comp = art.composition;
+    if (typeof comp === 'string') {
+      try { comp = JSON.parse(comp); } catch(e){ comp = []; }
+    } else if (!comp || !Array.isArray(comp)) {
+      comp = [];
+    }
+    art.composition = comp;
+    ARTICLES_MAP[art.cArticle] = art;
+
+    var existingIdx = ARTICLES.findIndex(function(a){ return a.code === art.cArticle; });
+    var p = Number(art.prixVente) || 0;
+    if (existingIdx !== -1) {
+      ARTICLES[existingIdx].name = art.article || ARTICLES[existingIdx].name;
+      ARTICLES[existingIdx].pu = p || ARTICLES[existingIdx].pu;
+      ARTICLES[existingIdx].composition = comp;
+      ARTICLES[existingIdx].cFamille = art.cFamille;
+    } else {
+      ARTICLES.push({
+        code: art.cArticle,
+        name: art.article,
+        pu: p,
+        un: 'KG',
+        composition: comp,
+        cFamille: art.cFamille
+      });
+    }
+  });
+}
+
+/* ---- Combobox "Code Produit" : liste déroulante recherchable ---- */
+var DEF_ARTICLES_LIST = []; // {code, libelle, prix}
+var defProdMatches = [];
+var defProdHi = -1;
+
+function defProduitLabel(a){
+  return a.code + ' — ' + a.libelle + ' (' + (Number(a.prix) || 0).toLocaleString('fr-FR') + ' Ar)';
+}
+function defProduitLabelForCode(code){
+  var a = DEF_ARTICLES_LIST.find(function(x){ return x.code === code; });
+  return a ? defProduitLabel(a) : '';
+}
+function defProduitShow(q){
+  q = (q || '').trim().toUpperCase();
+  defProdMatches = DEF_ARTICLES_LIST.filter(function(a){
+    if (!q) return true;
+    // Recherche par préfixe du code article (ex : 2 premiers caractères) ou par nom
+    return a.code.toUpperCase().indexOf(q) === 0 || a.libelle.toUpperCase().indexOf(q) !== -1;
+  });
+  defProdHi = defProdMatches.length ? 0 : -1;
+  defProduitRender();
+  var el = $('code-produit-list');
+  if (el) el.classList.add('open');
+}
+function defProduitFilter(){
+  var input = $('code-produit-select');
+  defProduitShow(input ? input.value : '');
+}
+function defProduitFocus(){
+  var input = $('code-produit-select');
+  if (input) input.select(); // taper remplace le libellé affiché
+  defProduitShow('');
+}
+function defProduitClose(){
+  var el = $('code-produit-list');
+  if (el) el.classList.remove('open');
+}
+function defProduitRender(){
+  var el = $('code-produit-list');
+  if (!el) return;
+  var html = '';
+  if (!defProdMatches.length) {
+    html += '<div class="ac-empty">Aucun produit trouvé.</div>';
+  }
+  html += defProdMatches.map(function(a, i){
+    return '<div class="ac-item' + (i === defProdHi ? ' hi' : '') + '" ' +
+      'onmousedown="event.preventDefault();defProduitPick(' + i + ')" ' +
+      'onmouseenter="defProdHi=' + i + ';defProduitPaint()">' +
+      '<span><strong>' + esc(a.libelle) + '</strong> <span class="ac-code">' + esc(a.code) + '</span></span>' +
+      '<span class="ac-p">' + (a.pu ? f0(a.pu) + ' Ar' : '—') + '</span></div>';
+  }).join('');
+  html += '<div class="ac-item" style="color:#1D4ED8;font-weight:600;" ' +
+    'onmousedown="event.preventDefault();defProduitPickNew()">' +
+    '+ Créer / Saisir un nouvel article</div>';
+  el.innerHTML = html;
+}
+function defProduitPaint(){
+  var el = $('code-produit-list');
+  if (!el) return;
+  var items = el.querySelectorAll('.ac-item');
+  for (var i = 0; i < items.length; i++) items[i].className = 'ac-item' + (i === defProdHi ? ' hi' : '');
+}
+function defProduitPick(i){
+  var a = defProdMatches[i];
+  if (!a) return;
+  var input = $('code-produit-select');
+  if (input) input.value = defProduitLabel(a);
+  defProduitClose();
+  defPickArticle(a.code);
+}
+function defProduitPickNew(){
+  var input = $('code-produit-select');
+  if (input) input.value = '';
+  defProduitClose();
+  defPickArticle('__NEW__');
+}
+function defProduitKeys(e){
+  var el = $('code-produit-list');
+  var open = el && el.classList.contains('open');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (!open) { defProduitFocus(); return; }
+    defProdHi = Math.min(defProdHi + 1, defProdMatches.length - 1);
+    defProduitPaint();
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    defProdHi = Math.max(defProdHi - 1, 0);
+    defProduitPaint();
+  } else if (e.key === 'Enter') {
+    if (open && defProdMatches[defProdHi]) {
+      e.preventDefault();
+      defProduitPick(defProdHi);
+    }
+  } else if (e.key === 'Escape') {
+    defProduitClose();
+  }
+}
+function defProduitBlur(){
+  setTimeout(function(){
+    defProduitClose();
+    // Restaurer le libellé du produit sélectionné sur la case ( texte partiel = annulé )
+    var input = $('code-produit-select');
+    if (!input) return;
+    var cat = posCategories[defActiveCatIndex];
+    var item = (cat && cat.slots) ? cat.slots[defSelectedSlot] : null;
+    input.value = item ? (defProduitLabelForCode(item.code) || item.code || '') : '';
+  }, 200);
+}
+
+function populateArticlesSelect(articlesList) {
+  DEF_ARTICLES_LIST = (articlesList || []).map(function(art){
+    var code = art.cArticle || art.code;
+    var nom = art.article || art.name;
+    var pu = (art.prixVente !== undefined ? art.prixVente : (art.pu || 0));
+    return { code: code, libelle: nom, prix: Number(pu) || 0 };
+  }).filter(function(a){ return !!a.code; });
+
+  var select = $('code-produit-select') || $('def-prod-select');
+  if (select) {
+    select.placeholder = '-- Choisir un produit --';
+    // Améliorer l'affichage : code seul → libellé complet (si l'utilisateur n'est pas en train de taper)
+    if (document.activeElement !== select && select.value) {
+      var lbl = defProduitLabelForCode(select.value);
+      if (lbl) select.value = lbl;
+    }
+  }
+  defProduitClose();
+}
+
+function updateFamillesDropdown(articlesList){
+  var famSelect = $('def-famille');
+  if (!famSelect) return;
+  var currentVal = famSelect.value;
+  var set = new Set();
+  articlesList.forEach(function(a){
+    if (a.cFamille && a.cFamille.trim()) set.add(a.cFamille.trim());
+  });
+  if (set.size > 0) {
+    famSelect.innerHTML = '<option value="Toutes les familles">Toutes les familles</option>';
+    set.forEach(function(f){
+      var opt = document.createElement('option');
+      opt.value = f;
+      opt.textContent = f;
+      if (f === currentVal) opt.selected = true;
+      famSelect.appendChild(opt);
+    });
+  }
+}
+
+function updateSbBadge(connected){
+  var badge = $('sb-status-badge');
+  if (!badge) return;
+  if (connected) {
+    badge.innerHTML = '<span style="width:6px; height:6px; border-radius:50%; background:#10B981;"></span>Supabase Connecté';
+    badge.style.background = '#ECFDF5';
+    badge.style.color = '#059669';
+  } else {
+    badge.innerHTML = '<span style="width:6px; height:6px; border-radius:50%; background:#F59E0B;"></span>Catalogue Local';
+    badge.style.background = '#FFFBEB';
+    badge.style.color = '#D97706';
+  }
+}
+
+// Journal des documents déjà déstockés (évite les doubles insertions
+// si l'utilisateur clique plusieurs fois sur Enregistrer / Valider / Comptabiliser)
+var DESTOCKED_DOCS = {};
+function isDocDestocked(num){
+  try { DESTOCKED_DOCS = JSON.parse(localStorage.getItem('nxm_destocked') || '{}'); } catch(e) { DESTOCKED_DOCS = {}; }
+  return !!DESTOCKED_DOCS[num];
+}
+function markDocDestocked(num){
+  DESTOCKED_DOCS[num] = 1;
+  try { localStorage.setItem('nxm_destocked', JSON.stringify(DESTOCKED_DOCS)); } catch(e) {}
+}
+
+// Fiches des ingrédients de nomenclature, chargées depuis stock_items
+// INDÉPENDAMMENT du filtre est_vendu (les ingrédients ne sont pas à vendre)
+async function chargerIngredientsNomenclature(refs) {
+  var res = {};
+  var sb = getSupabase();
+  if (!sb || !refs.length) return res;
+  try {
+    var { data, error } = await sb.from('stock_items')
+      .select('cArticle, article, prixVente, prixAchat, cFamille')
+      .in('cArticle', refs);
+    if (error) throw error;
+    (data || []).forEach(function(art){
+      res[art.cArticle] = art;
+      ARTICLES_MAP[art.cArticle] = Object.assign({}, ARTICLES_MAP[art.cArticle] || {}, art);
+    });
+  } catch (e) {
+    console.warn('Chargement ingrédients stock_items impossible :', (e && e.message) || e);
+  }
+  return res;
+}
+
+// Déstockage automatique sur stock_movements (avec support de la nomenclature/composition)
+async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, docLines) {
+  var sb = getSupabase();
+  if (!sb) {
+    console.warn('Supabase non disponible pour le déstockage.');
+    return;
+  }
+  if (!docNumero || isDocDestocked(docNumero)) {
+    return; // déjà déstocké : on n'insère pas deux fois les mouvements
+  }
+  docType = docType || 'Facture Vente';
+  docDepot = docDepot || 'DP02 DEPOT RESTO';
+  docDate = docDate || new Date().toISOString().split('T')[0];
+
+  try {
+    var movements = [];
+    var totalHT = 0, totalTVA = 0, totalBrut = 0;
+
+    // Références des ingrédients à valoriser (prix frais depuis stock_items)
+    var refsIngredients = [];
+    docLines.forEach(function(l){
+      var art = ARTICLES_MAP[l.code] || ARTICLES.find(function(a){ return a.code === l.code; });
+      if (art && art.composition && art.composition.length) {
+        art.composition.forEach(function(compo){
+          var ref = compo.ref || compo.cArticle;
+          if (ref && refsIngredients.indexOf(ref) === -1) refsIngredients.push(ref);
+        });
+      }
+    });
+    var ingredientsSB = await chargerIngredientsNomenclature(refsIngredients);
+
+    for (const line of docLines) {
+      const quantiteVendue = Number(line.qty) || 1;
+      const puLigne = Number(line.pu) || 0;
+      const remLigne = Number(line.rem) || 0;
+      const tvaLigne = Number(line.tva) || 0;
+      const htLigne = quantiteVendue * puLigne * (1 - remLigne / 100);
+      const tvaMontantLigne = htLigne * tvaLigne / 100;
+      totalHT += htLigne;
+      totalTVA += tvaMontantLigne;
+      totalBrut += quantiteVendue * puLigne;
+
+      const articleVendu = ARTICLES_MAP[line.code] || ARTICLES.find(function(a){ return a.code === line.code; }) || { cArticle: line.code, article: line.name };
+
+      // Si l'article vendu a une composition (nomenclature / recette)
+      if (articleVendu.composition && articleVendu.composition.length > 0) {
+        // Pour chaque ingrédient de la recette
+        for (const compo of articleVendu.composition) {
+          const qteParPortion = Number(compo.quantite) || Number(compo.qte) || 1;
+          const quantiteSortie = qteParPortion * quantiteVendue; // ex: 0.25 kg * 1 = 0.25 kg
+
+          const refIngr = compo.ref || compo.cArticle;
+          const ingr = ingredientsSB[refIngr] || ARTICLES_MAP[refIngr] || ARTICLES.find(function(a){ return a.code === refIngr; }) || {};
+          const localIngr = ARTICLES.find(function(a){ return a.code === refIngr; }) || {};
+          // Prix : stock_items (prixVente, sinon prixAchat) sinon catalogue local
+          const puIngr = Number(ingr.prixVente) || Number(ingr.prixAchat) || Number(localIngr.pu) || 0;
+          const montantIngr = puIngr * quantiteSortie;
+
+          // Mouvement de sortie de l'ingrédient dans stock_movements
+          movements.push({
+            id: Date.now() + Math.floor(Math.random() * 100000),
+            type: 'vente_nomenclature',
+            typeDocument: docType,
+            numeroPiece: docNumero, // N° de pièce de la vente (ex: VTE-413687)
+            cArticle: refIngr, // Code de l'ingrédient (ex: 11ZEBUFILE)
+            article: compo.article || compo.designation || ingr.article || localIngr.name || refIngr || '',
+            qte: quantiteSortie,
+            sortie: quantiteSortie,
+            pu: puIngr,
+            remise: 0,
+            montant: montantIngr,
+            total: montantIngr,
+            montantFinale: montantIngr,
+            totalHT: montantIngr,
+            numFamille: ingr.cFamille || '',
+            cFamille: ingr.cFamille || '',
+            depot: compo.depotSortie || docDepot,
+            date: docDate
+          });
+        }
+      } else {
+        // Article simple sans recette (ex: Boisson en bouteille) :
+        // Déstockage direct de l'article vendu
+        movements.push({
+          id: Date.now() + Math.floor(Math.random() * 100000),
+          type: 'vente',
+          typeDocument: docType,
+          numeroPiece: docNumero,
+          cArticle: articleVendu.cArticle || line.code,
+          article: articleVendu.article || line.name,
+          qte: quantiteVendue,
+          sortie: quantiteVendue,
+          pu: puLigne,
+          remise: remLigne,
+          montant: htLigne,
+          total: htLigne,
+          montantFinale: htLigne + tvaMontantLigne,
+          totalHT: htLigne,
+          numFamille: articleVendu.cFamille || '',
+          cFamille: articleVendu.cFamille || '',
+          depot: docDepot,
+          date: docDate
+        });
+      }
+    }
+
+    if (movements.length) {
+      var resMov = await sb.from('stock_movements').insert(movements);
+      if (resMov.error) throw resMov.error;
+      // Mouvements OK : on verrouille ce N° de pièce pour ne jamais les rejouer
+      markDocDestocked(docNumero);
+    }
+
+    // Enregistrement également dans documents_vente si la table existe
+    try {
+      var resDoc = await sb.from('documents_vente').insert({
+        id: Date.now(),
+        type: docType,
+        numero: docNumero,
+        date: docDate,
+        clientCode: $('f-ccode').value || '',
+        clientNom: $('f-client').selectedOptions[0] ? $('f-client').selectedOptions[0].textContent : '',
+        tiers: $('f-client').selectedOptions[0] ? $('f-client').selectedOptions[0].textContent : '',
+        statut: $('f-statut').value || 'Brouillon',
+        depot: docDepot,
+        totalHT: totalHT,
+        totalTVA: totalTVA,
+        totalTTC: totalHT + totalTVA,
+        remise: totalBrut - totalHT,
+        lignes: JSON.stringify(docLines)
+      });
+      if (resDoc && resDoc.error) throw resDoc.error;
+    } catch(errDoc){
+      console.warn('Note: synchronisation documents_vente ignorée :', errDoc);
+    }
+
+    toast('Déstockage et vente ' + docNumero + ' synchronisés sur Supabase !', false);
+  } catch (err) {
+    console.error('Erreur lors du déstockage Supabase :', err);
+    toast('Vente enregistrée en local (erreur synchronisation stock Supabase).', true);
+  }
+}
+
+var ARTICLES = [
+  { code: '11ZEBUFILE', name: 'FILET DE ZEBU', pu: 7965, un: 'KG' },
+  { code: '12POULXXXX', name: 'POULET', pu: 20000, un: 'KG' },
+  { code: '13CREVXXXX', name: 'CREVETTE', pu: 1805, un: 'KG' },
+  { code: 'T12EBSTEAK', name: 'STEAK DE ZEBU', pu: 9500, un: 'KG' },
+  { code: 'ART001', name: 'Pain burger', pu: 400, un: 'U' },
+  { code: 'ART002', name: 'Steak zebu 150g', pu: 3500, un: 'U' },
+  { code: 'ART003', name: 'Salade verte', pu: 500, un: 'KG' },
+  { code: 'ART004', name: 'Tomate', pu: 400, un: 'KG' },
+  { code: 'ART005', name: 'Fromage tranché', pu: 800, un: 'U' },
+  { code: 'ART006', name: 'Frites surgelées', pu: 1200, un: 'KG' },
+  { code: 'ART007', name: 'Poulet entier', pu: 8000, un: 'U' },
+  { code: 'ART008', name: 'Riz blanc', pu: 1500, un: 'KG' },
+  { code: 'ART009', name: 'Soda 33cl', pu: 1500, un: 'U' },
+  { code: 'ART010', name: 'Eau minérale 1L', pu: 800, un: 'U' },
+  { code: 'ART011', name: 'Bière 65cl', pu: 2500, un: 'U' },
+  { code: 'ART012P', name: 'Burger Complet', pu: 15000, un: 'U' },
+  { code: 'ART013P', name: 'Assiette Riz Poulet', pu: 12000, un: 'U' },
+  { code: 'ART014P', name: 'Poulet DG', pu: 14000, un: 'U' }
+];
+var CLIENTS = [
+  { code: 'C11DIV01', name: 'CLIENT DIVERS' },
+  { code: 'C11EXT01', name: 'CLIENT EXTRA' },
+  { code: 'C11AGE01', name: 'CLIENT AGENCE' }
+];
+var AGENCE_CODE = 'C11AGE01';
+
+var lines = [];
+var sel = -1;
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function f2(n){return (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function f0(n){return (Number(n)||0).toLocaleString('fr-FR',{minimumFractionDigits:0,maximumFractionDigits:0});}
+function pad(n){return String(n).padStart(2,'0');}
+function $(id){return document.getElementById(id);}
+
+function genNum(){
+  var store=[];
+  try{store=JSON.parse(localStorage.getItem('nxm_docs')||'[]');}catch(e){}
+  var max=413686;
+  store.forEach(function(d){var v=parseInt(String(d.num).replace(/\D/g,''),10);if(v>max&&v<999999)max=v;});
+  return 'VTE -'+(max+1);
+}
+function init(){
+  var sCli=$('f-client');
+  CLIENTS.forEach(function(c){
+    var o=document.createElement('option');
+    o.value=c.code;o.textContent=c.code+' — '+c.name;
+    sCli.appendChild(o);
+  });
+  var d=new Date();
+  $('f-date').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  $('f-num').value=genNum();
+
+  // Pré-charger les articles par défaut dans le tableau
+  lines = [
+    { code: '11ZEBUFILE', name: 'FILET DE ZEBU', pu: 7965, qty: 1, cond: 'KG', rem: 0, tva: 0 },
+    { code: '12POULXXXX', name: 'POULET', pu: 20000, qty: 1, cond: 'KG', rem: 0, tva: 0 },
+    { code: '13CREVXXXX', name: 'CREVETTE', pu: 1805, qty: 1, cond: 'KG', rem: 0, tva: 0 }
+  ];
+  sel = -1;
+
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Delete'&&sel>=0&&['INPUT','SELECT','TEXTAREA'].indexOf(document.activeElement.tagName)===-1)removeLine();
+  });
+  document.addEventListener('click',function(e){
+    var w=$('ac');
+    if(w&&!w.contains(e.target))acClose();
+  });
+  syncTitle();
+  render();
+  loadPosCategories();
+  renderPosTouchPad();
+  chargerArticlesPourBoutons();
+}
+
+function syncTitle(){
+  var type=$('f-type').value;
+  var num=($('f-num').value||'').replace(/\s*-\s*/,'-');
+  $('tb-title').textContent=type+' N° '+num;
+  var st=$('f-statut').value;
+  var pill=$('tb-pill');
+  pill.textContent=st;
+  pill.className='pill'+(st==='Validée'?' validee':st==='Comptabilisée'?' compta':st==='Annulée'?' annulee':'');
+}
+function agenceOption(){
+  var sel = $('f-client');
+  if (!sel) return null;
+  for (var i = 0; i < sel.options.length; i++) {
+    if (sel.options[i].value === AGENCE_CODE) return sel.options[i];
+  }
+  return null;
+}
+function resetAgenceOption(){
+  var o = agenceOption();
+  if (o) o.textContent = AGENCE_CODE + ' — CLIENT AGENCE';
+}
+function validerAgence(){
+  var sel = $('f-client');
+  var inp = $('f-agence');
+  var row = $('f-agence-row');
+  if (!sel || !inp) return;
+  var nom = (inp.value || '').trim();
+  var o = agenceOption();
+  if (o) o.textContent = AGENCE_CODE + (nom ? ' — ' + nom : ' — CLIENT AGENCE');
+  if (sel.value !== AGENCE_CODE) sel.value = AGENCE_CODE;
+  $('f-ccode').value = AGENCE_CODE;
+  if (row) row.style.display = 'none'; // le sous-champ disparaît
+}
+function agenceKeydown(e){
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    validerAgence();
+  } else if (e.key === 'Tab') {
+    validerAgence(); // valide puis laisse le focus avancer normalement
+  }
+}
+function pickClient(){
+  var sel = $('f-client');
+  var code = sel ? sel.value : '';
+  $('f-ccode').value = code;
+  var row = $('f-agence-row');
+  if (!row) return;
+  if (code === AGENCE_CODE) {
+    // Sélection de CLIENT AGENCE : afficher le sous-champ "Nom de l'agence"
+    row.style.display = '';
+    var inp = $('f-agence');
+    if (inp) { inp.focus(); inp.select(); }
+  } else {
+    row.style.display = 'none';
+  }
+}
+
+/* ---- Autocomplétion article ---- */
+var acMatches = [];
+var acHi = -1;
+
+function acFilter(){
+  var q = ($('f-art').value || '').trim().toLowerCase();
+  var list = ARTICLES.filter(function(a){
+    if (!q) return true;
+    return a.code.toLowerCase().indexOf(q) !== -1 || a.name.toLowerCase().indexOf(q) !== -1;
+  });
+  acMatches = list;
+  acHi = list.length ? 0 : -1;
+  var el = $('ac-list');
+  if (!list.length) {
+    el.innerHTML = '<div class="ac-empty">Aucun article trouvé pour "' + esc(q) + '"</div>';
+  } else {
+    el.innerHTML = list.map(function(a, i){
+      return '<div class="ac-item' + (i === acHi ? ' hi' : '') + '" onmousedown="event.preventDefault();acPick(' + i + ')" onmouseenter="acHi=' + i +';acPaint()">' +
+        '<span><strong>' + esc(a.name) + '</strong> <span class="ac-code">' + esc(a.code) + '</span></span>' +
+        '<span class="ac-p">' + (a.pu ? f2(a.pu) + ' Ar' : '—') + '</span></div>';
+    }).join('');
+  }
+  el.classList.add('open');
+}
+function acPaint(){
+  var items = $('ac-list').querySelectorAll('.ac-item');
+  for (var i = 0; i < items.length; i++) items[i].className = 'ac-item' + (i === acHi ? ' hi' : '');
+}
+function acClose(){ var el = $('ac-list'); if (el) el.classList.remove('open'); }
+function acPick(i){
+  var a = acMatches[i];
+  if (!a) return;
+  $('f-art').value = a.code + ' - ' + a.name;
+  $('f-art').dataset.code = a.code;
+  acClose();
+}
+function acKeys(e){
+  if (e.key === 'ArrowDown') { e.preventDefault(); if (!$('ac-list').classList.contains('open')) { acFilter(); return; } acHi = Math.min(acHi + 1, acMatches.length - 1); acPaint(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); acHi = Math.max(acHi - 1, 0); acPaint(); }
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    if ($('ac-list').classList.contains('open') && acHi >= 0 && !$('f-art').dataset.code) { acPick(acHi); }
+    else addArticle();
+  }
+  else if (e.key === 'Escape') { acClose(); }
+}
+
+function findArticleFromInput(){
+  var raw = ($('f-art').value || '').trim();
+  if (!raw) return null;
+  var preset = $('f-art').dataset.code;
+  if (preset) {
+    var byCode = ARTICLES.find(function(a){ return a.code === preset; });
+    if (byCode && (raw.indexOf(byCode.code) === 0)) { delete $('f-art').dataset.code; return byCode; }
+    delete $('f-art').dataset.code;
+  }
+  var lower = raw.toLowerCase();
+  var exact = ARTICLES.find(function(a){ return (a.code + ' - ' + a.name).toLowerCase() === lower || a.code.toLowerCase() === lower; });
+  if (exact) return exact;
+  return ARTICLES.find(function(a){ return a.code.toLowerCase().indexOf(lower) === 0 || a.name.toLowerCase().indexOf(lower) !== -1; });
+}
+
+function addArticle(){
+  var art = findArticleFromInput();
+  if (!art) { toast('Saisissez ou sélectionnez un article dans la liste.', true); acFilter(); return; }
+  var i = lines.findIndex(function(l){ return l.code === art.code; });
+  if (i !== -1) {
+    lines[i].qty = (Number(lines[i].qty) || 0) + 1;
+    sel = i; render();
+    toast('Quantité incrémentée pour ' + art.name, false);
+    return;
+  }
+  lines.push({ code: art.code, name: art.name, pu: art.pu || 0, qty: 1, cond: art.un || 'U', rem: 0, tva: 0 });
+  sel = lines.length - 1;
+  $('f-art').value = '';
+  delete $('f-art').dataset.code;
+  render();
+  toast(art.name + ' ajouté au tableau.', false);
+}
+function addManual(){
+  lines.push({code:'LIG'+pad(lines.length+1),name:'',pu:0,qty:1,cond:'',rem:0,tva:0});
+  sel=lines.length-1;
+  render();
+}
+function removeLine(){
+  if(sel<0||sel>=lines.length){toast('Sélectionnez une ligne à supprimer.',true);return;}
+  delLine(sel);
+}
+function delLine(i){
+  if(i<0||i>=lines.length)return;
+  lines.splice(i,1);
+  sel=lines.length?Math.min(i,lines.length-1):-1;
+  render();
+  toast('Ligne supprimée.',false);
+}
+function clearLines(){
+  if(lines.length&&!confirm('Vider toutes les lignes du document ?'))return;
+  lines=[];sel=-1;render();
+}
+function upd(i,f,v){
+  if(!lines[i])return;
+  lines[i][f]=(f==='name'||f==='cond'||f==='code')?v:(parseFloat(v)||0);
+  render();
+}
+function selectRow(i){sel=i;render();}
+
+function calc(l){
+  var net=l.pu*(1-(l.rem||0)/100);
+  var tot=l.qty*net;
+  var tva=tot*(l.tva||0)/100;
+  return{net:net,tot:tot,tva:tva};
+}
+
+function render(){
+  var tb=$('tbody');
+  tb.innerHTML=lines.map(function(l,i){
+    var c=calc(l);
+    l._net=c.net;l._tot=c.tot;l._tva=c.tva;
+    return '<tr class="'+(i===sel?'sel':'')+'" onclick="selectRow('+i+')">'+
+      '<td><input class="g-in" value="'+esc(l.code)+'" onchange="upd('+i+',\'code\',this.value)"/></td>'+
+      '<td><input class="g-in" value="'+esc(l.name)+'" onchange="upd('+i+',\'name\',this.value)"/></td>'+
+      '<td><input class="g-in r" type="number" step="0.01" value="'+(l.pu||0)+'" style="text-align:right;" onchange="upd('+i+',\'pu\',this.value)"/></td>'+
+      '<td><input class="g-in" type="number" step="0.01" value="'+(l.qty||0)+'" style="text-align:center;" onchange="upd('+i+',\'qty\',this.value)"/></td>'+
+      '<td><input class="g-in" value="'+esc(l.cond||'')+'" style="text-align:center;" onchange="upd('+i+',\'cond\',this.value)"/></td>'+
+      '<td><input class="g-in" type="number" step="0.1" value="'+(l.rem||0)+'" style="text-align:right;" onchange="upd('+i+',\'rem\',this.value)"/></td>'+
+      '<td><input class="g-in" type="number" step="0.1" value="'+(l.tva||0)+'" style="text-align:right;" onchange="upd('+i+',\'tva\',this.value)"/></td>'+
+      '<td class="cell-net">'+f2(c.net)+'</td>'+
+      '<td class="cell-tot">'+f2(c.tot)+
+      ' <button class="row-del" title="Supprimer la ligne" onclick="event.stopPropagation();delLine('+i+')"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button></td>'+
+      '</tr>';
+  }).join('');
+  $('empty').style.display=lines.length?'none':'';
+  var ht=lines.reduce(function(s,l){return s+(l._tot||0);},0);
+  var tv=lines.reduce(function(s,l){return s+(l._tva||0);},0);
+  var ttc=ht+tv;
+  $('t-ht').textContent=f2(ht)+' Ar';
+  $('t-tva').textContent=f2(tv)+' Ar';
+  $('t-ttc').textContent=f2(ttc)+' Ar';
+  $('hd-subtotal').textContent=f0(ht)+' Ar';
+}
+
+function toast(msg,err){
+  var t=$('toast');
+  t.textContent=msg;
+  t.className='toast show '+(err?'err':'ok');
+  clearTimeout(window._tt);
+  window._tt=setTimeout(function(){t.className='toast';},3000);
+}
+
+async function validateDoc(){
+  if(!lines.length){toast('Ajoutez au moins une ligne.',true);return;}
+  $('f-statut').value='Validée';
+  syncTitle();
+  await saveDoc();
+}
+async function comptaDoc(){
+  if(!lines.length){toast('Ajoutez au moins une ligne.',true);return;}
+  $('f-statut').value='Comptabilisée';
+  syncTitle();
+  await saveDoc();
+}
+async function saveDoc(){
+  if(!lines.length){toast('Ajoutez au moins une ligne avant d\'enregistrer.',true);return;}
+  if(lines.some(function(l){return !l.name||(Number(l.qty)||0)<=0;})){toast('Chaque ligne : désignation + quantité > 0 requises.',true);return;}
+  var store=[];
+  try{store=JSON.parse(localStorage.getItem('nxm_docs')||'[]');}catch(e){}
+  var ht=lines.reduce(function(s,l){return s+l._tot;},0);
+  var tv=lines.reduce(function(s,l){return s+l._tva;},0);
+  var doc={
+    num:$('f-num').value,type:$('f-type').value,statut:$('f-statut').value,date:$('f-date').value,
+    clientCode:$('f-ccode').value,clientNom:$('f-client').selectedOptions[0]?$('f-client').selectedOptions[0].textContent:'',
+    depot:$('f-depot').value,reference:$('f-ref').value,repr:$('f-repr').value,affaire:$('f-aff').value,mode:$('f-mode').value,
+    entete:$('f-entete').value,poidsNet:$('f-pn').value,poidsBrut:$('f-pb').value,
+    lines:lines.map(function(l){return{code:l.code,name:l.name,pu:l.pu,qty:l.qty,cond:l.cond,rem:l.rem,tva:l.tva,net:l._net,tot:l._tot};}),
+    totalHT:ht,totalTVA:tv,totalTTC:ht+tv,savedAt:new Date().toISOString()
+  };
+  store.push(doc);
+  localStorage.setItem('nxm_docs',JSON.stringify(store));
+
+  // Déstockage automatique sur Supabase (avec gestion de composition / nomenclature)
+  await destockerArticlesVendus(doc.num, doc.type, doc.depot, doc.date, doc.lines);
+
+  toast('Document '+doc.num+' enregistré ('+doc.lines.length+' ligne(s)).',false);
+  resetForm(false);
+}
+function resetForm(notify){
+  lines=[];sel=-1;
+  $('f-num').value=genNum();
+  $('f-ref').value='';$('f-ccode').value='';$('f-client').selectedIndex=0;
+  if ($('f-agence-row')) $('f-agence-row').style.display='none';
+  if ($('f-agence')) $('f-agence').value='';
+  resetAgenceOption();
+  $('f-entete').value='';$('f-pn').value='0,000';$('f-pb').value='0,000';
+  $('f-art').value='';
+  delete $('f-art').dataset.code;
+  $('f-statut').value='Brouillon';
+  syncTitle();render();
+  if(notify!==false)toast('Formulaire réinitialisé.',false);
+}
+function resetAll(){
+  if(lines.length&&!confirm('Annuler et réinitialiser le document ?'))return;
+  resetForm(true);
+}
+
+function minWin(){toast('Fenêtre réduite (démo).',false);}
+function maxWin(){$('win').classList.toggle('maximized');}
+function closeWin(){
+  if(lines.length&&!confirm('Fermer ? Les lignes non enregistrées seront perdues.'))return;
+  resetForm(false);toast('Formulaire réinitialisé.',false);
+}
+
+function printDoc(){
+  var ht=lines.reduce(function(s,l){return s+(l._tot||0);},0);
+  var tv=lines.reduce(function(s,l){return s+(l._tva||0);},0);
+  var rows=lines.map(function(l){
+    return '<tr><td>'+esc(l.code)+'</td><td>'+esc(l.name)+'</td><td class="r">'+f2(l.pu)+'</td><td class="r">'+f2(l.qty)+'</td><td class="r">'+f2(l.rem||0)+'%</td><td class="r">'+f2(l.tva||0)+'%</td><td class="r">'+f2(l._net)+'</td><td class="r"><b>'+f2(l._tot)+'</b></td></tr>';
+  }).join('');
+  var html='<div style="font-family:Arial;font-size:12px;color:#000;">'+
+    '<h2 style="margin:0;">'+esc($('f-type').value)+' N° '+esc($('f-num').value)+'</h2>'+
+    '<p style="margin:4px 0;">Date : '+esc($('f-date').value)+' — Statut : '+esc($('f-statut').value)+'<br/>Client : '+esc($('f-ccode').value)+' '+esc($('f-client').selectedOptions[0]?$('f-client').selectedOptions[0].textContent:'')+
+    '<br/>Dépôt : '+esc($('f-depot').value)+' — Réf. client : '+esc($('f-ref').value)+'</p><hr/>'+
+    '<table style="width:100%;border-collapse:collapse;"><thead><tr>'+
+    ['Réf','Désignation','P.U HT','Qté','Rem','TVA','P.U net','Total HT'].map(function(h){return '<th style="border-bottom:1px solid #000;text-align:left;padding:3px;">'+h+'</th>';}).join('')+
+    '</tr></thead><tbody>'+(rows||'<tr><td colspan="8" style="text-align:center;padding:10px;">Aucune ligne</td></tr>')+'</tbody></table>'+
+    '<p style="text-align:right;margin-top:8px;">Sous-total HT : <b>'+f2(ht)+' Ar</b><br/>TVA : <b>'+f2(tv)+' Ar</b><br/><span style="font-size:15px;">Total TTC : <b>'+f2(ht+tv)+' Ar</b></span></p></div>';
+  var w=window.open('','_blank','width=800,height=600');
+  if(!w){toast('Autorisez les pop-ups pour imprimer.',true);return;}
+  w.document.write('<!DOCTYPE html><html><head><title>'+esc($('f-num').value)+'</title></head><body style="padding:16px;">'+html+'</body></html>');
+  w.document.close();
+  setTimeout(function(){w.focus();w.print();},300);
+}
+
+/* ==========================================================================
+   MODULE : BOUTONS RAPIDES PRODUITS & FENÊTRE DE DÉFINITION (POS TACTILE)
+   ========================================================================== */
+var POS_DEFAULT_CATEGORIES = [
+  {
+    id: 'ENTREES', name: 'ENTREES', color: '#00C853', fg: '#FFFFFF',
+    slots: {
+      0: { code: 'ENT001', name: 'HARICOTVER PARISIEN', pu: 15000, bg: '#E2E8F0', fg: '#0F172A' },
+      8: { code: 'ENT002', name: 'LEGUMES SAUTEES', pu: 20000, bg: '#E2E8F0', fg: '#0F172A' },
+      16: { code: 'ENT003', name: 'POTAGE DE POTIRON', pu: 20000, bg: '#E2E8F0', fg: '#0F172A' },
+      24: { code: 'ENT004', name: 'TOMATE FARCIE', pu: 15000, bg: '#C084FC', fg: '#0F172A' },
+      32: { code: 'ENT005', name: 'CRUDITES', pu: 20000, bg: '#CBD5E1', fg: '#0F172A' },
+      1: { code: 'ENT006', name: 'CREME DE LEG VEGETAR', pu: 40000, bg: '#FB923C', fg: '#0F172A' },
+      17: { code: 'ENT007', name: 'ASSIETTE CRUDITES', pu: 20000, bg: '#FB923C', fg: '#0F172A' },
+      25: { code: 'ENT008', name: 'FARANDOL TOMATE FRG', pu: 0, bg: '#FB923C', fg: '#0F172A' },
+      33: { code: 'ENT009', name: 'SALADE-CHOU-FLEUR', pu: 20000, bg: '#FB923C', fg: '#0F172A' }
+    }
+  },
+  {
+    id: 'PLATS', name: 'PLATS', color: '#FFD600', fg: '#000000',
+    slots: {
+      0: { code: '11ZEBUFILE', name: 'FILET DE ZEBU', pu: 7965, bg: '#FDE047', fg: '#000000' },
+      8: { code: '12POULXXXX', name: 'POULET', pu: 20000, bg: '#F472B6', fg: '#000000' },
+      16: { code: '13CREVXXXX', name: 'CREVETTE', pu: 1805, bg: '#FDBA74', fg: '#000000' },
+      1: { code: 'PLT001', name: 'SOUPE LEGUME', pu: 20000, bg: '#FEF08A', fg: '#000000' },
+      9: { code: 'PLT002', name: 'CANARD SAUCE', pu: 5000, bg: '#E879F9', fg: '#000000' },
+      17: { code: 'PLT003', name: 'POULET SAUCE', pu: 30000, bg: '#FDBA74', fg: '#000000' }
+    }
+  },
+  {
+    id: 'DESSERT', name: 'DESSERT', color: '#E040FB', fg: '#FFFFFF',
+    slots: {}
+  },
+  {
+    id: 'BOISSON', name: 'BOISSON', color: '#FFFFFF', fg: '#0F172A',
+    slots: {
+      0: { code: 'ART009', name: 'Soda 33cl', pu: 1500, bg: '#93C5FD', fg: '#000000' },
+      8: { code: 'ART010', name: 'Eau minérale 1L', pu: 800, bg: '#BAE6FD', fg: '#000000' },
+      16: { code: 'ART011', name: 'Bière 65cl', pu: 2500, bg: '#FDE047', fg: '#000000' }
+    }
+  },
+  {
+    id: 'ALCOOL', name: 'ALCOOL', color: '#D50000', fg: '#FFFFFF',
+    slots: {}
+  },
+  {
+    id: 'SNACK', name: 'SNACK', color: '#795548', fg: '#FFFFFF',
+    slots: {
+      0: { code: 'ART012P', name: 'Burger Complet', pu: 15000, bg: '#FED7AA', fg: '#000000' }
+    }
+  },
+  {
+    id: 'BLANCHISS', name: 'BLANCHISS', color: '#9575CD', fg: '#FFFFFF',
+    slots: {
+      0: { code: 'BLA001', name: 'BLOUSON', pu: 5000, bg: '#C4B5FD', fg: '#000000' },
+      8: { code: 'BLA002', name: 'MAILLOT', pu: 20000, bg: '#FEF08A', fg: '#000000' },
+      16: { code: 'BLA003', name: 'CALECON', pu: 20000, bg: '#C4B5FD', fg: '#000000' },
+      24: { code: 'BLA004', name: 'MOUCHOIR', pu: 95000, bg: '#FEF08A', fg: '#000000' },
+      32: { code: 'BLA005', name: 'CHAUSSETTE', pu: 23000, bg: '#C4B5FD', fg: '#000000' },
+      1: { code: 'BLA006', name: 'PANTALON', pu: 20000, bg: '#FEF08A', fg: '#000000' },
+      9: { code: 'BLA007', name: 'CHEMISE', pu: 23000, bg: '#C4B5FD', fg: '#000000' },
+      17: { code: 'BLA008', name: 'PYJAMA', pu: 20000, bg: '#FEF08A', fg: '#000000' },
+      25: { code: 'BLA009', name: 'JUPE', pu: 23000, bg: '#C4B5FD', fg: '#000000' },
+      33: { code: 'BLA010', name: 'ROBE', pu: 20000, bg: '#FEF08A', fg: '#000000' },
+      2: { code: 'BLA011', name: 'SAC', pu: 10000, bg: '#C4B5FD', fg: '#000000' },
+      10: { code: 'BLA012', name: 'SERVIETTE BAIN', pu: 2500, bg: '#FEF08A', fg: '#000000' },
+      18: { code: 'BLA013', name: 'SHORT', pu: 50000, bg: '#C4B5FD', fg: '#000000' },
+      26: { code: 'BLA014', name: 'SOUS-VETEMENT', pu: 30000, bg: '#FEF08A', fg: '#000000' },
+      34: { code: 'BLA015', name: 'SOUTIEN-GORGE', pu: 25000, bg: '#C4B5FD', fg: '#000000' },
+      3: { code: 'BLA016', name: 'TENNIS', pu: 5000, bg: '#FEF08A', fg: '#000000' },
+      11: { code: 'BLA017', name: 'TSHIRT', pu: 5000, bg: '#C4B5FD', fg: '#000000' },
+      19: { code: 'BLA018', name: 'VESTON', pu: 0, bg: '#FEF08A', fg: '#000000' }
+    }
+  },
+  {
+    id: 'BOUTIQUE', name: 'BOUTIQUE', color: '#0D47A1', fg: '#FFFFFF',
+    slots: {}
+  },
+  {
+    id: 'PDJ', name: 'PDJ', color: '#B388FF', fg: '#000000',
+    slots: {
+      0: { code: '65PETIDEJC', name: 'PDJ CONTINENTAL', pu: 25000, bg: '#FEF08A', fg: '#000000' }
+    }
+  },
+  {
+    id: 'VIN', name: 'VIN', color: '#CFD8DC', fg: '#0F172A',
+    slots: {}
+  }
+];
+
+var SWATCH_COLORS = [
+  '#000000', '#795548', '#808080', '#FFFFFF', '#FF0000', '#FF00FF', '#800080', '#FF80BF',
+  '#0000FF', '#00FFFF', '#008000', '#90EE90', '#FF9900', '#FFFF00', '#B4F8C8', '#FFFDE7'
+];
+
+var posCategories = [];
+var currentPosCatIndex = 0;
+var defActiveCatIndex = 0;
+var defSelectedSlot = 0;
+var defCopiedFormat = null;
+
+function loadPosCategories(){
+  try {
+    var stored = localStorage.getItem('nxm_pos_categories');
+    if (stored) {
+      posCategories = JSON.parse(stored);
+    }
+  } catch(e){}
+  if (!posCategories || !posCategories.length) {
+    posCategories = JSON.parse(JSON.stringify(POS_DEFAULT_CATEGORIES));
+  }
+}
+
+function savePosCategories(){
+  try {
+    localStorage.setItem('nxm_pos_categories', JSON.stringify(posCategories));
+  } catch(e){}
+}
+
+/* Basculer l'affichage du clavier tactile */
+function togglePosPad(){
+  var pad = $('pos-touch-pad');
+  if (!pad) return;
+  pad.style.display = (pad.style.display === 'none') ? 'block' : 'none';
+}
+
+/* Rendu du clavier tactile sur la page principale */
+function renderPosTouchPad(){
+  var catsEl = $('pos-touch-cats');
+  var gridEl = $('pos-touch-grid');
+  if (!catsEl || !gridEl) return;
+  
+  if (currentPosCatIndex >= posCategories.length) currentPosCatIndex = 0;
+  var currentCat = posCategories[currentPosCatIndex];
+
+  // Onglets catégories
+  catsEl.innerHTML = posCategories.map(function(cat, idx){
+    var isActive = idx === currentPosCatIndex;
+    var bg = cat.color || '#E2E8F0';
+    var fg = cat.fg || '#000';
+    return '<button type="button" class="pos-cat-btn' + (isActive ? ' active' : '') + '" ' +
+      'style="background:' + esc(bg) + '; color:' + esc(fg) + ';" ' +
+      'onclick="setPosCat(' + idx + ')">' + esc(cat.name) + '</button>';
+  }).join('');
+
+  // Grille des boutons produits de la catégorie active
+  var html = '';
+  var slots = currentCat ? (currentCat.slots || {}) : {};
+  // 40 slots (8 x 5)
+  for (var i = 0; i < 40; i++) {
+    var btn = slots[i];
+    if (btn && btn.name) {
+      var bg = btn.bg || '#FFFFFF';
+      var fg = btn.fg || '#000000';
+      var priceStr = btn.pu ? f0(btn.pu) + ' Ar' : '';
+      html += '<div class="pos-btn" style="background:' + esc(bg) + '; color:' + esc(fg) + ';" ' +
+        'onclick="addArticleDirect(\'' + esc(btn.code || '') + '\',\'' + esc(btn.name || '') + '\',' + (btn.pu || 0) + ',\'' + esc(btn.cond || 'KG') + '\')" ' +
+        'title="' + esc(btn.name) + ' (' + esc(btn.code) + ')">' +
+        '<span class="pos-btn-name">' + esc(btn.name) + '</span>' +
+        (priceStr ? '<span class="pos-btn-price">' + esc(priceStr) + '</span>' : '') +
+        '</div>';
+    } else {
+      html += '<div class="pos-btn-empty" onclick="openDefBoutonsModal(' + currentPosCatIndex + ',' + i + ')">+</div>';
+    }
+  }
+  gridEl.innerHTML = html;
+}
+
+function setPosCat(idx){
+  currentPosCatIndex = idx;
+  renderPosTouchPad();
+}
+
+/* Ajout direct d'un article par clic sur un bouton */
+function addArticleDirect(code, name, pu, cond){
+  if (!code && !name) return;
+  code = code || ('ART' + pad(lines.length + 1));
+  name = name || code;
+  pu = Number(pu) || 0;
+  cond = cond || 'KG';
+
+  var existing = lines.findIndex(function(l){ return l.code === code; });
+  if (existing !== -1) {
+    lines[existing].qty = (Number(lines[existing].qty) || 0) + 1;
+    sel = existing;
+    render();
+    toast('Quantité incrémentée : ' + name + ' (x' + lines[existing].qty + ')', false);
+    return;
+  }
+  lines.push({ code: code, name: name, pu: pu, qty: 1, cond: cond, rem: 0, tva: 0 });
+  sel = lines.length - 1;
+  render();
+  toast(name + ' inséré au tableau.', false);
+}
+
+/* ==========================================================================
+   FENÊTRE MODALE : DÉFINITION DES BOUTONS PRODUITS
+   ========================================================================== */
+function openDefBoutonsModal(catIdx, slotIdx){
+  loadPosCategories();
+  if (typeof catIdx === 'number' && catIdx >= 0 && catIdx < posCategories.length) {
+    defActiveCatIndex = catIdx;
+  }
+  if (typeof slotIdx === 'number' && slotIdx >= 0 && slotIdx < 40) {
+    defSelectedSlot = slotIdx;
+  }
+  
+  // Charger les articles frais depuis Supabase (filtrés par famille active)
+  var famSelect = $('def-famille');
+  chargerArticlesPourBoutons(famSelect ? famSelect.value : null);
+
+  // Initialiser la palette de couleurs
+  var palEl = $('def-palette');
+  if (palEl) {
+    palEl.innerHTML = SWATCH_COLORS.map(function(c){
+      return '<div class="def-swatch" style="background:' + esc(c) + ';" ' +
+        'title="' + esc(c) + '" onclick="defSetColor(\'bg\',\'' + esc(c) + '\')"></div>';
+    }).join('');
+  }
+
+  renderDefModal();
+  var m = $('modal-def-boutons');
+  if (m) m.classList.add('open');
+}
+
+function closeDefBoutonsModal(){
+  var m = $('modal-def-boutons');
+  if (m) m.classList.remove('open');
+}
+
+function renderDefModal(){
+  if (defActiveCatIndex >= posCategories.length) defActiveCatIndex = 0;
+  var cat = posCategories[defActiveCatIndex];
+  if (!cat) return;
+
+  // Code catégorie
+  var codeIn = $('def-cat-code');
+  if (codeIn) codeIn.value = cat.id || cat.name;
+
+  // Catégories pills
+  var pillsEl = $('def-cats-pills');
+  if (pillsEl) {
+    pillsEl.innerHTML = posCategories.map(function(c, i){
+      var isAct = i === defActiveCatIndex;
+      var bg = c.color || '#E2E8F0';
+      var fg = c.fg || '#000';
+      return '<button type="button" class="def-cat-pill' + (isAct ? ' active' : '') + '" ' +
+        'style="background:' + esc(bg) + '; color:' + esc(fg) + ';" ' +
+        'onclick="defSelectCat(' + i + ')">' + esc(c.name) + '</button>';
+    }).join('');
+  }
+
+  // Grille 8x5 des 40 slots
+  var gridEl = $('def-slots-grid');
+  if (gridEl) {
+    var slots = cat.slots || {};
+    var html = '';
+    for (var i = 0; i < 40; i++) {
+      var item = slots[i];
+      var isSel = (i === defSelectedSlot);
+      if (item && item.name) {
+        var bg = item.bg || '#FFFFFF';
+        var fg = item.fg || '#000000';
+        var pr = item.pu ? f0(item.pu) + ' Ar' : '';
+        html += '<div class="def-slot' + (isSel ? ' selected' : '') + '" ' +
+          'style="background:' + esc(bg) + '; color:' + esc(fg) + ';" ' +
+          'onclick="defSelectSlot(' + i + ')">' +
+          '<span class="slot-title">' + esc(item.name) + '</span>' +
+          (pr ? '<span class="slot-price">' + esc(pr) + '</span>' : '') +
+          '</div>';
+      } else {
+        html += '<div class="def-slot' + (isSel ? ' selected' : '') + '" ' +
+          'style="background:#FFF; color:#94A3B8; border-style:dashed;" ' +
+          'onclick="defSelectSlot(' + i + ')"><span>[ Vide ]</span></div>';
+      }
+    }
+    gridEl.innerHTML = html;
+  }
+
+  // Mettre à jour le panneau latéral de configuration
+  updateDefSidePanel();
+}
+
+function defSelectCat(i){
+  defActiveCatIndex = i;
+  defSelectedSlot = 0;
+  renderDefModal();
+}
+
+function defSelectSlot(i){
+  defSelectedSlot = i;
+  renderDefModal();
+}
+
+function updateDefSidePanel(){
+  var cat = posCategories[defActiveCatIndex];
+  if (!cat) return;
+  var item = (cat.slots && cat.slots[defSelectedSlot]) ? cat.slots[defSelectedSlot] : null;
+
+  var sProd = $('code-produit-select') || $('def-prod-select');
+  var inLabel = $('def-btn-label');
+  var inPrice = $('def-btn-price');
+  var inBg = $('def-bg-picker');
+  var inBgText = $('def-bg-text');
+  var inFg = $('def-fg-picker');
+  var inFgText = $('def-fg-text');
+
+  if (item) {
+    if (sProd) sProd.value = defProduitLabelForCode(item.code) || item.code || '';
+    if (inLabel) inLabel.value = item.name || '';
+    if (inPrice) inPrice.value = item.pu || 0;
+    var bg = item.bg || '#FFFFFF';
+    var fg = item.fg || '#000000';
+    if (inBg) inBg.value = bg.length === 7 ? bg : '#FFFFFF';
+    if (inBgText) inBgText.value = bg;
+    if (inFg) inFg.value = fg.length === 7 ? fg : '#000000';
+    if (inFgText) inFgText.value = fg;
+  } else {
+    if (sProd) sProd.value = '';
+    if (inLabel) inLabel.value = '';
+    if (inPrice) inPrice.value = '';
+    if (inBg) inBg.value = '#FFFFFF';
+    if (inBgText) inBgText.value = '#FFFFFF';
+    if (inFg) inFg.value = '#000000';
+    if (inFgText) inFgText.value = '#000000';
+  }
+}
+
+function defPickArticle(code){
+  var cat = posCategories[defActiveCatIndex];
+  if (!cat) return;
+  if (!cat.slots) cat.slots = {};
+
+  if (!code) {
+    delete cat.slots[defSelectedSlot];
+    renderDefModal();
+    return;
+  }
+
+  if (code === '__NEW__') {
+    var newCode = prompt('Saisissez le code du nouvel article :');
+    if (!newCode) return;
+    var newName = prompt('Désignation de l\'article :', newCode);
+    var newPrice = parseFloat(prompt('Prix unitaire (Ar) :', '1000')) || 0;
+    ARTICLES.push({ code: newCode, name: newName || newCode, pu: newPrice, un: 'KG' });
+    cat.slots[defSelectedSlot] = {
+      code: newCode, name: newName || newCode, pu: newPrice,
+      bg: '#FEF08A', fg: '#000000'
+    };
+    openDefBoutonsModal(defActiveCatIndex, defSelectedSlot);
+    return;
+  }
+
+  var found = ARTICLES.find(function(a){ return a.code === code; });
+  if (found) {
+    cat.slots[defSelectedSlot] = {
+      code: found.code,
+      name: found.name,
+      pu: found.pu || 0,
+      bg: (cat.slots[defSelectedSlot] && cat.slots[defSelectedSlot].bg) ? cat.slots[defSelectedSlot].bg : '#FEF08A',
+      fg: (cat.slots[defSelectedSlot] && cat.slots[defSelectedSlot].fg) ? cat.slots[defSelectedSlot].fg : '#000000'
+    };
+    renderDefModal();
+  }
+}
+
+function defApplyCurrentEdit(){
+  var cat = posCategories[defActiveCatIndex];
+  if (!cat) return;
+  if (!cat.slots) cat.slots = {};
+  var item = cat.slots[defSelectedSlot];
+  if (!item) {
+    item = { code: 'ART' + (defSelectedSlot + 1), name: '', pu: 0, bg: '#FFFFFF', fg: '#000000' };
+    cat.slots[defSelectedSlot] = item;
+  }
+  item.name = $('def-btn-label').value;
+  item.pu = parseFloat($('def-btn-price').value) || 0;
+  renderDefModal();
+}
+
+function defSetColor(type, color){
+  var cat = posCategories[defActiveCatIndex];
+  if (!cat) return;
+  if (!cat.slots) cat.slots = {};
+  var item = cat.slots[defSelectedSlot];
+  if (!item) {
+    item = { code: 'ART' + (defSelectedSlot + 1), name: 'Nouveau bouton', pu: 0, bg: '#FFFFFF', fg: '#000000' };
+    cat.slots[defSelectedSlot] = item;
+  }
+  if (type === 'bg') {
+    item.bg = color;
+    $('def-bg-picker').value = (color.length === 7) ? color : '#FFFFFF';
+    $('def-bg-text').value = color;
+  } else {
+    item.fg = color;
+    $('def-fg-picker').value = (color.length === 7) ? color : '#000000';
+    $('def-fg-text').value = color;
+  }
+  renderDefModal();
+}
+
+function defCopyFormat(){
+  var cat = posCategories[defActiveCatIndex];
+  var item = (cat && cat.slots) ? cat.slots[defSelectedSlot] : null;
+  if (item) {
+    defCopiedFormat = { bg: item.bg, fg: item.fg };
+    toast('Format copié (' + item.bg + '). Cliquez un autre bouton puis "Réinit/Appliquer".', false);
+  }
+}
+
+function defResetCurrentSlot(){
+  var cat = posCategories[defActiveCatIndex];
+  if (cat && cat.slots && cat.slots[defSelectedSlot]) {
+    delete cat.slots[defSelectedSlot];
+    renderDefModal();
+    toast('Bouton réinitialisé.', false);
+  }
+}
+
+function defResetAllCat(){
+  var cat = posCategories[defActiveCatIndex];
+  if (cat && confirm('Réinitialiser tous les boutons de la catégorie "' + cat.name + '" ?')) {
+    cat.slots = {};
+    renderDefModal();
+    toast('Catégorie réinitialisée.', false);
+  }
+}
+
+function defColorCat(){
+  var cat = posCategories[defActiveCatIndex];
+  if (!cat) return;
+  var col = prompt('Couleur d\'en-tête de la catégorie (ex: #00C853, #FFD600, #E040FB) :', cat.color || '#E2E8F0');
+  if (col) {
+    cat.color = col;
+    renderDefModal();
+  }
+}
+
+function defRemoveSlot(){
+  defResetCurrentSlot();
+}
+
+/* Déplacement d'un slot dans la grille avec les flèches */
+function defMoveSlot(dx, dy){
+  var cat = posCategories[defActiveCatIndex];
+  if (!cat || !cat.slots) return;
+  var oldIdx = defSelectedSlot;
+  var col = oldIdx % 8;
+  var row = Math.floor(oldIdx / 8);
+  var newCol = Math.max(0, Math.min(7, col + dx));
+  var newRow = Math.max(0, Math.min(4, row + dy));
+  var newIdx = newRow * 8 + newCol;
+  if (newIdx === oldIdx) return;
+
+  var temp = cat.slots[oldIdx];
+  cat.slots[oldIdx] = cat.slots[newIdx];
+  if (temp) {
+    cat.slots[newIdx] = temp;
+  } else {
+    delete cat.slots[newIdx];
+  }
+  if (!cat.slots[oldIdx]) delete cat.slots[oldIdx];
+  defSelectedSlot = newIdx;
+  renderDefModal();
+}
+
+/* Gestion des catégories */
+function defMoveCat(delta){
+  var newIdx = defActiveCatIndex + delta;
+  if (newIdx < 0 || newIdx >= posCategories.length) return;
+  var temp = posCategories[defActiveCatIndex];
+  posCategories[defActiveCatIndex] = posCategories[newIdx];
+  posCategories[newIdx] = temp;
+  defActiveCatIndex = newIdx;
+  renderDefModal();
+}
+
+function defAddCat(){
+  var name = prompt('Nom de la nouvelle sous-catégorie (ex: DESSERT, GLACES, COCKTAILS) :');
+  if (!name) return;
+  var col = prompt('Couleur du bouton (ex: #10B981, #F59E0B, #EC4899, #3B82F6) :', '#6C63FF');
+  posCategories.push({
+    id: name.trim().toUpperCase(),
+    name: name.trim().toUpperCase(),
+    color: col || '#6C63FF',
+    fg: '#FFFFFF',
+    slots: {}
+  });
+  defActiveCatIndex = posCategories.length - 1;
+  renderDefModal();
+  toast('Sous-catégorie "' + name + '" ajoutée.', false);
+}
+
+function defRemoveCat(){
+  if (posCategories.length <= 1) {
+    toast('Impossible de supprimer la dernière catégorie.', true);
+    return;
+  }
+  var cat = posCategories[defActiveCatIndex];
+  if (confirm('Retirer la sous-catégorie "' + cat.name + '" et tous ses boutons ?')) {
+    posCategories.splice(defActiveCatIndex, 1);
+    defActiveCatIndex = Math.max(0, defActiveCatIndex - 1);
+    renderDefModal();
+    toast('Catégorie retirée.', false);
+  }
+}
+
+function defDeleteCat(){
+  defRemoveCat();
+}
+
+function defUpdateCatCode(val){
+  var cat = posCategories[defActiveCatIndex];
+  if (cat && val) {
+    cat.id = val.trim().toUpperCase();
+    cat.name = val.trim().toUpperCase();
+    renderDefModal();
+  }
+}
+
+function defSaveAndClose(){
+  savePosCategories();
+  renderPosTouchPad();
+  closeDefBoutonsModal();
+  toast('Configuration des boutons enregistrée avec succès !', false);
+}
+
+
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(function(reg){
+    reg.update();
+  }).catch(function(){});
+}
+document.addEventListener('DOMContentLoaded',init);
+</script>
+</body>
+</html>
