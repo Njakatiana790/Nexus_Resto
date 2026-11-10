@@ -211,6 +211,36 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
 .def-side-btns button:hover{background:#F1F5F9;border-color:#94A3B8;}
 .def-modal-ft{padding:10px 18px;background:#F8FAFC;border-top:1px solid #E2E8F0;display:flex;justify-content:flex-end;gap:10px;}
 
+/* ---- Fenêtre Modale : Historique des Ventes ---- */
+.hist-modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(15,23,42,.65);backdrop-filter:blur(3px);z-index:850;display:none;align-items:center;justify-content:center;padding:16px;}
+.hist-modal-overlay.open{display:flex;}
+.hist-modal{background:#fff;width:980px;max-width:98vw;max-height:92vh;border-radius:14px;box-shadow:0 25px 60px rgba(0,0,0,.35);display:flex;flex-direction:column;overflow:hidden;border:1px solid #CBD5E1;}
+.hist-modal-hd{background:#0F172A;color:#fff;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex:none;}
+.hist-modal-hd-title{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:700;letter-spacing:-.2px;}
+.hist-modal-hd-title svg{width:19px;height:19px;stroke:#60A5FA;}
+.hist-modal-close{background:#1E293B;border:1px solid #334155;color:#E2E8F0;font-size:16px;cursor:pointer;line-height:1;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:.12s;}
+.hist-modal-close:hover{background:#334155;color:#fff;}
+.hist-modal-body{padding:16px 20px;overflow-y:auto;display:flex;flex-direction:column;gap:12px;flex:1;background:#F8FAFC;}
+.hist-table-wrap{background:#fff;border:1px solid #E2E8F0;border-radius:10px;overflow-x:auto;box-shadow:0 1px 3px rgba(0,0,0,.03);}
+.hist-table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:760px;}
+.hist-table th{background:#F8FAFC;text-align:left;padding:11px 14px;font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#475569;border-bottom:1px solid #E2E8F0;white-space:nowrap;}
+.hist-table th.r{text-align:right;}
+.hist-table td{padding:11px 14px;border-bottom:1px solid #F1F5F9;vertical-align:middle;}
+.hist-table tr:last-child td{border-bottom:none;}
+.hist-table tr:hover td{background:#FAFBFF;}
+.hist-num{font-weight:800;color:#2563EB;cursor:pointer;}
+.hist-num:hover{text-decoration:underline;}
+.hist-client{font-weight:700;color:#0F172A;}
+.hist-ttc{font-weight:800;color:#2563EB;text-align:right;white-space:nowrap;}
+.hist-btn-group{display:flex;gap:6px;justify-content:flex-end;}
+.hist-btn-open{border:1px solid #CBD5E1;background:#fff;color:#334155;padding:6px 12px;border-radius:7px;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:.12s;}
+.hist-btn-open:hover{background:#F1F5F9;border-color:#94A3B8;}
+.hist-btn-del{border:1px solid #FECACA;background:#FFF5F5;color:#EF4444;padding:6px 12px;border-radius:7px;font-size:11.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:.12s;}
+.hist-btn-del:hover{background:#FEF2F2;border-color:#F87171;}
+.hist-empty{padding:40px 20px;text-align:center;color:#64748B;font-style:italic;font-size:13px;}
+.hist-modal-ft{padding:12px 20px;background:#fff;border-top:1px solid #E2E8F0;display:flex;justify-content:space-between;align-items:center;flex:none;}
+.hist-count-lbl{font-size:12.5px;color:#64748B;font-weight:600;}
+
 /* ---- Adaptation mobile ---- */
 @media(max-width:700px){
   body{padding:6px;}
@@ -291,9 +321,11 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
 
   <div class="toolbar">
     <button class="btn btn-primary" onclick="saveDoc()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Enregistrer</button>
+    <button class="btn btn-ghost" onclick="resetForm(true)" title="Nouveau document"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Nouveau</button>
     <button class="btn btn-ghost" onclick="printDoc()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimer</button>
     <button class="btn btn-red" onclick="clearLines()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Vider</button>
     <button class="btn btn-blue" onclick="validateDoc()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Valider</button>
+    <button class="btn btn-ghost" id="btn-historique" onclick="openHistorique()" title="Consulter l'historique des ventes enregistrées (Supabase &amp; Cache)"><svg viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Historique (<span id="hist-count">0</span>)</button>
     <button class="btn btn-ghost" onclick="togglePosPad()" title="Afficher / Masquer la saisie par boutons tactiles"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Boutons Rapides</button>
     <button class="btn btn-ghost" onclick="openDefBoutonsModal()" title="Ouvrir la fenêtre de configuration des boutons produits"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Définir boutons</button>
     <div class="sub">Sous-total HT : <b id="hd-subtotal">0 Ar</b></div>
@@ -350,6 +382,18 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
               </select>
             </div>
             <div class="fld"><label>Référence client</label><input id="f-ref" placeholder="Optionnel"/></div>
+          </div>
+          <div class="fld-grid g2" style="margin-top:12px;">
+            <div class="fld"><label>Numéro de Table</label>
+              <select id="f-table">
+                <option value="">-- Aucune table --</option>
+              </select>
+            </div>
+            <div class="fld"><label>Numéro de Chambre</label>
+              <select id="f-chambre">
+                <option value="">-- Aucune chambre --</option>
+              </select>
+            </div>
           </div>
           <div class="fld-grid g3" style="margin-top:12px;">
             <div class="fld"><label>Représentant</label>
@@ -412,7 +456,6 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
             <th>Désignation</th>
             <th class="r" style="width:85px;">P.U. HT</th>
             <th style="width:70px;text-align:center;">Qté</th>
-            <th style="width:100px;text-align:center;">Cond.</th>
             <th class="r" style="width:70px;">Rem.<br/>%</th>
             <th class="r" style="width:65px;">TVA %</th>
             <th class="r" style="width:85px;">P.U. net</th>
@@ -569,6 +612,44 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
     <div class="def-modal-ft">
       <button class="btn btn-ghost" onclick="closeDefBoutonsModal()">Fermer</button>
       <button class="btn btn-primary" onclick="defSaveAndClose()"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px;"><polyline points="20 6 9 17 4 12"/></svg> Enregistrer &amp; Appliquer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre Modale : Historique des Ventes (Supabase & Cache) -->
+<div class="hist-modal-overlay" id="modal-historique" onclick="if(event.target===this)closeHistorique()">
+  <div class="hist-modal">
+    <div class="hist-modal-hd">
+      <div class="hist-modal-hd-title">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="12 11 12 14 14 15"/></svg>
+        Historique des Ventes (Supabase &amp; Cache)
+      </div>
+      <button class="hist-modal-close" onclick="closeHistorique()" title="Fermer">✕</button>
+    </div>
+    <div class="hist-modal-body">
+      <div class="hist-table-wrap">
+        <table class="hist-table">
+          <thead>
+            <tr>
+              <th style="width:130px;">N° PIÈCE</th>
+              <th>CLIENT</th>
+              <th style="width:110px;">DATE</th>
+              <th style="width:145px;">DÉPÔT</th>
+              <th class="r" style="width:125px;">TOTAL TTC</th>
+              <th style="width:115px;text-align:center;">STATUT</th>
+              <th class="r" style="width:190px;">ACTION</th>
+            </tr>
+          </thead>
+          <tbody id="hist-tbody"></tbody>
+        </table>
+        <div id="hist-empty" class="hist-empty" style="display:none;">
+          Aucun document de vente enregistré pour le moment.
+        </div>
+      </div>
+    </div>
+    <div class="hist-modal-ft">
+      <span class="hist-count-lbl" id="hist-ft-count">0 document(s) enregistré(s)</span>
+      <button class="btn btn-ghost" onclick="closeHistorique()">Fermer</button>
     </div>
   </div>
 </div>
@@ -872,18 +953,62 @@ async function chargerIngredientsNomenclature(refs) {
 }
 
 // Déstockage automatique sur stock_movements (avec support de la nomenclature/composition)
-async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, docLines) {
+async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, docLines, numTable, numChambre, docRef) {
   var sb = getSupabase();
   if (!sb) {
     console.warn('Supabase non disponible pour le déstockage.');
     return;
   }
-  if (!docNumero || isDocDestocked(docNumero)) {
-    return; // déjà déstocké : on n'insère pas deux fois les mouvements
+  if (!docNumero) return;
+
+  // Si le document a déjà été déstocké, on met à jour les champs modifiables
+  // (table, chambre, référence, statut) sans re-créer les mouvements
+  if (isDocDestocked(docNumero)) {
+    try {
+      var updNumTable = numTable;
+      var updNumChambre = numChambre;
+      var updRef = docRef;
+      if (updNumTable === undefined && $('f-table')) updNumTable = $('f-table').value;
+      if (updNumChambre === undefined && $('f-chambre')) updNumChambre = $('f-chambre').value;
+      if (updRef === undefined && $('f-ref')) updRef = $('f-ref').value;
+      updNumTable = updNumTable || '';
+      updNumChambre = updNumChambre || '';
+      updRef = (updRef || '').trim();
+
+      // Mise à jour des mouvements existants
+      await sb.from('stock_movements').update({
+        numeroTable: updNumTable,
+        numeroChambre: updNumChambre,
+        reference: updRef
+      }).eq('numeroPiece', docNumero);
+
+      // Mise à jour du document de vente
+      var updDocPayload = {
+        numeroTable: updNumTable,
+        numeroChambre: updNumChambre,
+        reference: updRef,
+        refClient: updRef,
+        statut: $('f-statut') ? $('f-statut').value : 'Brouillon',
+        clientCode: $('f-ccode') ? $('f-ccode').value : '',
+        clientNom: $('f-client') && $('f-client').selectedOptions[0] ? $('f-client').selectedOptions[0].textContent : ''
+      };
+      await sb.from('documents_vente').update(updDocPayload).eq('numero', docNumero);
+
+      toast('Document ' + docNumero + ' mis à jour sur Supabase (table/chambre/réf).', false);
+    } catch(e) {
+      console.warn('Erreur mise à jour document existant Supabase :', e);
+    }
+    return;
   }
   docType = docType || 'Facture Vente';
   docDepot = docDepot || 'DP02 DEPOT RESTO';
   docDate = docDate || new Date().toISOString().split('T')[0];
+  if (numTable === undefined && $('f-table')) numTable = $('f-table').value;
+  if (numChambre === undefined && $('f-chambre')) numChambre = $('f-chambre').value;
+  if (docRef === undefined && $('f-ref')) docRef = $('f-ref').value;
+  numTable = numTable || '';
+  numChambre = numChambre || '';
+  docRef = (docRef || '').trim();
 
   try {
     var movements = [];
@@ -935,6 +1060,7 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
             type: 'vente_nomenclature',
             typeDocument: docType,
             numeroPiece: docNumero, // N° de pièce de la vente (ex: VTE-413687)
+            reference: docRef,      // Référence client
             cArticle: refIngr, // Code de l'ingrédient (ex: 11ZEBUFILE)
             article: compo.article || compo.designation || ingr.article || localIngr.name || refIngr || '',
             qte: quantiteSortie,
@@ -948,6 +1074,8 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
             numFamille: ingr.cFamille || '',
             cFamille: ingr.cFamille || '',
             depot: compo.depotSortie || docDepot,
+            numeroTable: numTable,
+            numeroChambre: numChambre,
             date: docDate
           });
         }
@@ -959,6 +1087,7 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
           type: 'vente',
           typeDocument: docType,
           numeroPiece: docNumero,
+          reference: docRef,       // Référence client
           cArticle: articleVendu.cArticle || line.code,
           article: articleVendu.article || line.name,
           qte: quantiteVendue,
@@ -972,6 +1101,8 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
           numFamille: articleVendu.cFamille || '',
           cFamille: articleVendu.cFamille || '',
           depot: docDepot,
+          numeroTable: numTable,
+          numeroChambre: numChambre,
           date: docDate
         });
       }
@@ -979,14 +1110,28 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
 
     if (movements.length) {
       var resMov = await sb.from('stock_movements').insert(movements);
-      if (resMov.error) throw resMov.error;
+      if (resMov.error) {
+        var msg = resMov.error.message || '';
+        if (msg.indexOf('numeroTable') !== -1 || msg.indexOf('numeroChambre') !== -1 || msg.indexOf('reference') !== -1) {
+          console.warn('Colonnes optionnelles absentes dans stock_movements, repli...');
+          var fbMov = movements.map(function(m){
+            var copy = Object.assign({}, m);
+            if (msg.indexOf('numeroTable') !== -1) delete copy.numeroTable;
+            if (msg.indexOf('numeroChambre') !== -1) delete copy.numeroChambre;
+            if (msg.indexOf('reference') !== -1) delete copy.reference;
+            return copy;
+          });
+          resMov = await sb.from('stock_movements').insert(fbMov);
+        }
+        if (resMov && resMov.error) throw resMov.error;
+      }
       // Mouvements OK : on verrouille ce N° de pièce pour ne jamais les rejouer
       markDocDestocked(docNumero);
     }
 
     // Enregistrement également dans documents_vente si la table existe
     try {
-      var resDoc = await sb.from('documents_vente').insert({
+      var docPayload = {
         id: Date.now(),
         type: docType,
         numero: docNumero,
@@ -996,13 +1141,38 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
         tiers: $('f-client').selectedOptions[0] ? $('f-client').selectedOptions[0].textContent : '',
         statut: $('f-statut').value || 'Brouillon',
         depot: docDepot,
+        reference: docRef,
+        refClient: docRef,
+        numeroTable: numTable,
+        numeroChambre: numChambre,
+        representant: $('f-repr') ? $('f-repr').value : '',
+        affaire: $('f-aff') ? $('f-aff').value : '',
+        expedition: $('f-mode') ? $('f-mode').value : '',
+        notes: $('f-entete') ? $('f-entete').value : '',
+        poidsNet: $('f-pn') ? $('f-pn').value : '',
+        poidsBrut: $('f-pb') ? $('f-pb').value : '',
         totalHT: totalHT,
         totalTVA: totalTVA,
         totalTTC: totalHT + totalTVA,
         remise: totalBrut - totalHT,
         lignes: JSON.stringify(docLines)
-      });
-      if (resDoc && resDoc.error) throw resDoc.error;
+      };
+      var resDoc = await sb.from('documents_vente').insert(docPayload);
+      if (resDoc && resDoc.error) {
+        var msgDoc = resDoc.error.message || '';
+        console.warn('Tentative d insertion documents_vente avec repli si colonnes absentes :', msgDoc);
+        if (msgDoc.indexOf('refClient') !== -1) delete docPayload.refClient;
+        if (msgDoc.indexOf('reference') !== -1) delete docPayload.reference;
+        if (msgDoc.indexOf('numeroTable') !== -1) delete docPayload.numeroTable;
+        if (msgDoc.indexOf('numeroChambre') !== -1) delete docPayload.numeroChambre;
+        if (msgDoc.indexOf('representant') !== -1) delete docPayload.representant;
+        if (msgDoc.indexOf('affaire') !== -1) delete docPayload.affaire;
+        if (msgDoc.indexOf('expedition') !== -1) delete docPayload.expedition;
+        if (msgDoc.indexOf('notes') !== -1) delete docPayload.notes;
+        if (msgDoc.indexOf('poidsNet') !== -1) delete docPayload.poidsNet;
+        if (msgDoc.indexOf('poidsBrut') !== -1) delete docPayload.poidsBrut;
+        await sb.from('documents_vente').insert(docPayload);
+      }
     } catch(errDoc){
       console.warn('Note: synchronisation documents_vente ignorée :', errDoc);
     }
@@ -1057,7 +1227,20 @@ function genNum(){
   store.forEach(function(d){var v=parseInt(String(d.num).replace(/\D/g,''),10);if(v>max&&v<999999)max=v;});
   return 'VTE -'+(max+1);
 }
+function populateNumbersSelect(id, emptyLabel){
+  var el = $(id);
+  if (!el) return;
+  var html = '<option value="">' + emptyLabel + '</option>';
+  for (var i = 1; i <= 100; i++) {
+    html += '<option value="' + i + '">' + i + '</option>';
+  }
+  el.innerHTML = html;
+}
+
 function init(){
+  seedSampleDocsIfEmpty();
+  populateNumbersSelect('f-table', '-- Aucune table --');
+  populateNumbersSelect('f-chambre', '-- Aucune chambre --');
   var sCli=$('f-client');
   CLIENTS.forEach(function(c){
     var o=document.createElement('option');
@@ -1068,12 +1251,8 @@ function init(){
   $('f-date').value=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
   $('f-num').value=genNum();
 
-  // Pré-charger les articles par défaut dans le tableau
-  lines = [
-    { code: '11ZEBUFILE', name: 'FILET DE ZEBU', pu: 7965, qty: 1, cond: 'KG', rem: 0, tva: 0 },
-    { code: '12POULXXXX', name: 'POULET', pu: 20000, qty: 1, cond: 'KG', rem: 0, tva: 0 },
-    { code: '13CREVXXXX', name: 'CREVETTE', pu: 1805, qty: 1, cond: 'KG', rem: 0, tva: 0 }
-  ];
+  // Tableau vide par défaut au démarrage
+  lines = [];
   sel = -1;
 
   document.addEventListener('keydown',function(e){
@@ -1088,6 +1267,7 @@ function init(){
   loadPosCategories();
   renderPosTouchPad();
   chargerArticlesPourBoutons();
+  updateHistCount();
 }
 
 function syncTitle(){
@@ -1270,7 +1450,6 @@ function render(){
       '<td><input class="g-in" value="'+esc(l.name)+'" onchange="upd('+i+',\'name\',this.value)"/></td>'+
       '<td><input class="g-in r" type="number" step="0.01" value="'+(l.pu||0)+'" style="text-align:right;" onchange="upd('+i+',\'pu\',this.value)"/></td>'+
       '<td><input class="g-in" type="number" step="0.01" value="'+(l.qty||0)+'" style="text-align:center;" onchange="upd('+i+',\'qty\',this.value)"/></td>'+
-      '<td><input class="g-in" value="'+esc(l.cond||'')+'" style="text-align:center;" onchange="upd('+i+',\'cond\',this.value)"/></td>'+
       '<td><input class="g-in" type="number" step="0.1" value="'+(l.rem||0)+'" style="text-align:right;" onchange="upd('+i+',\'rem\',this.value)"/></td>'+
       '<td><input class="g-in" type="number" step="0.1" value="'+(l.tva||0)+'" style="text-align:right;" onchange="upd('+i+',\'tva\',this.value)"/></td>'+
       '<td class="cell-net">'+f2(c.net)+'</td>'+
@@ -1315,19 +1494,24 @@ async function saveDoc(){
   try{store=JSON.parse(localStorage.getItem('nxm_docs')||'[]');}catch(e){}
   var ht=lines.reduce(function(s,l){return s+l._tot;},0);
   var tv=lines.reduce(function(s,l){return s+l._tva;},0);
+  var numTable = $('f-table') ? $('f-table').value : '';
+  var numChambre = $('f-chambre') ? $('f-chambre').value : '';
+
   var doc={
     num:$('f-num').value,type:$('f-type').value,statut:$('f-statut').value,date:$('f-date').value,
     clientCode:$('f-ccode').value,clientNom:$('f-client').selectedOptions[0]?$('f-client').selectedOptions[0].textContent:'',
     depot:$('f-depot').value,reference:$('f-ref').value,repr:$('f-repr').value,affaire:$('f-aff').value,mode:$('f-mode').value,
+    numeroTable:numTable,numeroChambre:numChambre,
     entete:$('f-entete').value,poidsNet:$('f-pn').value,poidsBrut:$('f-pb').value,
     lines:lines.map(function(l){return{code:l.code,name:l.name,pu:l.pu,qty:l.qty,cond:l.cond,rem:l.rem,tva:l.tva,net:l._net,tot:l._tot};}),
     totalHT:ht,totalTVA:tv,totalTTC:ht+tv,savedAt:new Date().toISOString()
   };
   store.push(doc);
   localStorage.setItem('nxm_docs',JSON.stringify(store));
+  updateHistCount();
 
   // Déstockage automatique sur Supabase (avec gestion de composition / nomenclature)
-  await destockerArticlesVendus(doc.num, doc.type, doc.depot, doc.date, doc.lines);
+  await destockerArticlesVendus(doc.num, doc.type, doc.depot, doc.date, doc.lines, numTable, numChambre, doc.reference);
 
   toast('Document '+doc.num+' enregistré ('+doc.lines.length+' ligne(s)).',false);
   resetForm(false);
@@ -1336,6 +1520,8 @@ function resetForm(notify){
   lines=[];sel=-1;
   $('f-num').value=genNum();
   $('f-ref').value='';$('f-ccode').value='';$('f-client').selectedIndex=0;
+  if ($('f-table')) $('f-table').value='';
+  if ($('f-chambre')) $('f-chambre').value='';
   if ($('f-agence-row')) $('f-agence-row').style.display='none';
   if ($('f-agence')) $('f-agence').value='';
   resetAgenceOption();
@@ -1361,13 +1547,19 @@ function closeWin(){
 function printDoc(){
   var ht=lines.reduce(function(s,l){return s+(l._tot||0);},0);
   var tv=lines.reduce(function(s,l){return s+(l._tva||0);},0);
+  var numT = $('f-table') ? $('f-table').value : '';
+  var numC = $('f-chambre') ? $('f-chambre').value : '';
+  var extraInfo = '';
+  if (numT) extraInfo += ' — Table N° ' + esc(numT);
+  if (numC) extraInfo += ' — Chambre N° ' + esc(numC);
+
   var rows=lines.map(function(l){
     return '<tr><td>'+esc(l.code)+'</td><td>'+esc(l.name)+'</td><td class="r">'+f2(l.pu)+'</td><td class="r">'+f2(l.qty)+'</td><td class="r">'+f2(l.rem||0)+'%</td><td class="r">'+f2(l.tva||0)+'%</td><td class="r">'+f2(l._net)+'</td><td class="r"><b>'+f2(l._tot)+'</b></td></tr>';
   }).join('');
   var html='<div style="font-family:Arial;font-size:12px;color:#000;">'+
     '<h2 style="margin:0;">'+esc($('f-type').value)+' N° '+esc($('f-num').value)+'</h2>'+
     '<p style="margin:4px 0;">Date : '+esc($('f-date').value)+' — Statut : '+esc($('f-statut').value)+'<br/>Client : '+esc($('f-ccode').value)+' '+esc($('f-client').selectedOptions[0]?$('f-client').selectedOptions[0].textContent:'')+
-    '<br/>Dépôt : '+esc($('f-depot').value)+' — Réf. client : '+esc($('f-ref').value)+'</p><hr/>'+
+    '<br/>Dépôt : '+esc($('f-depot').value)+' — Réf. client : '+esc($('f-ref').value)+extraInfo+'</p><hr/>'+
     '<table style="width:100%;border-collapse:collapse;"><thead><tr>'+
     ['Réf','Désignation','P.U HT','Qté','Rem','TVA','P.U net','Total HT'].map(function(h){return '<th style="border-bottom:1px solid #000;text-align:left;padding:3px;">'+h+'</th>';}).join('')+
     '</tr></thead><tbody>'+(rows||'<tr><td colspan="8" style="text-align:center;padding:10px;">Aucune ligne</td></tr>')+'</tbody></table>'+
@@ -1377,6 +1569,314 @@ function printDoc(){
   w.document.write('<!DOCTYPE html><html><head><title>'+esc($('f-num').value)+'</title></head><body style="padding:16px;">'+html+'</body></html>');
   w.document.close();
   setTimeout(function(){w.focus();w.print();},300);
+}
+
+/* ==========================================================================
+   MODULE : HISTORIQUE DES VENTES (SUPABASE & CACHE LOCAL)
+   ========================================================================== */
+var CURRENT_HIST_DOCS = [];
+
+function seedSampleDocsIfEmpty(){
+  var existing = null;
+  try { existing = JSON.parse(localStorage.getItem('nxm_docs')); } catch(e){}
+  if (!existing || !Array.isArray(existing) || !existing.length) {
+    var samples = [
+      {
+        num: 'VTE-413687', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-29',
+        clientCode: 'C11DIV01', clientNom: 'C11DIV01 — CLIENT DIVERS',
+        depot: 'DP02 DEPOT RESTO', reference: '', repr: 'Aucun', affaire: 'Aucune', mode: 'Standard',
+        numeroTable: '12', numeroChambre: '',
+        entete: '', poidsNet: '0,000', poidsBrut: '0,000',
+        lines: [
+          { code: '11ZEBUFILE', name: 'FILET DE ZEBU', pu: 7965, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 7965, tot: 7965 },
+          { code: '12POULXXXX', name: 'POULET', pu: 20000, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 20000, tot: 20000 },
+          { code: '13CREVXXXX', name: 'CREVETTE', pu: 1805, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 1805, tot: 1805 }
+        ],
+        totalHT: 29770, totalTVA: 0, totalTTC: 29770,
+        savedAt: '2026-10-29T11:00:00.000Z'
+      },
+      {
+        num: 'VTE-413686', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-28',
+        clientCode: 'C11EXT01', clientNom: 'C11EXT01 — CLIENT EXTRA',
+        depot: 'DP02 DEPOT RESTO', reference: 'EXP-992', repr: 'RABE Jean', affaire: 'AFF-001 Livraison zone nord', mode: 'Standard',
+        numeroTable: '', numeroChambre: '31',
+        entete: '', poidsNet: '0,000', poidsBrut: '0,000',
+        lines: [
+          { code: 'ENT001', name: 'HARICOTVER PARISIEN', pu: 15000, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 15000, tot: 15000 },
+          { code: 'ENT006', name: 'CREME DE LEG VEGETAR', pu: 40000, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 40000, tot: 40000 }
+        ],
+        totalHT: 55000, totalTVA: 0, totalTTC: 55000,
+        savedAt: '2026-10-28T14:30:00.000Z'
+      },
+      {
+        num: 'VTE-413685', type: 'Proforma Vente', statut: 'Comptabilisée', date: '2026-10-27',
+        clientCode: 'C11AGE01', clientNom: 'C11AGE01 — MALAGASYA TRAVEL',
+        depot: 'DP02 DEPOT RESTO', reference: '', repr: 'ANDRIANA Solo', affaire: 'AFF-002 Événement hôtel', mode: 'Express',
+        numeroTable: '5', numeroChambre: '',
+        entete: '', poidsNet: '0,000', poidsBrut: '0,000',
+        lines: [
+          { code: '12POULXXXX', name: 'POULET', pu: 20000, qty: 2, cond: 'KG', rem: 0, tva: 0, net: 20000, tot: 40000 },
+          { code: 'ART009', name: 'Soda 33cl', pu: 1500, qty: 4, cond: 'U', rem: 0, tva: 0, net: 1500, tot: 6000 }
+        ],
+        totalHT: 46000, totalTVA: 0, totalTTC: 46000,
+        savedAt: '2026-10-27T18:15:00.000Z'
+      },
+      {
+        num: 'VTE-413684', type: 'Proforma Vente', statut: 'Brouillon', date: '2026-10-26',
+        clientCode: 'C11DIV01', clientNom: 'C11DIV01 — CLIENT DIVERS',
+        depot: 'DP02 DEPOT RESTO', reference: '', repr: 'Aucun', affaire: 'Aucune', mode: 'Retrait client',
+        numeroTable: '', numeroChambre: '16',
+        entete: '', poidsNet: '0,000', poidsBrut: '0,000',
+        lines: [
+          { code: 'ENT004', name: 'TOMATE FARCIE', pu: 15000, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 15000, tot: 15000 }
+        ],
+        totalHT: 15000, totalTVA: 0, totalTTC: 15000,
+        savedAt: '2026-10-26T09:00:00.000Z'
+      }
+    ];
+    try { localStorage.setItem('nxm_docs', JSON.stringify(samples)); } catch(e){}
+  }
+}
+
+function updateHistCount(){
+  var count = 0;
+  try {
+    var stored = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+    count = (stored && Array.isArray(stored)) ? stored.length : 0;
+  } catch(e){}
+  var el = $('hist-count');
+  if (el) el.textContent = count;
+  var elFt = $('hist-ft-count');
+  if (elFt) elFt.textContent = count + ' document(s) enregistré(s)';
+}
+
+async function loadHistoriqueDocs(){
+  var docs = [];
+  try {
+    docs = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+  } catch(e){ docs = []; }
+
+  // Fusionner avec Supabase si connecté
+  var sb = getSupabase();
+  if (sb) {
+    try {
+      var { data, error } = await sb.from('documents_vente')
+        .select('*')
+        .order('id', { ascending: false })
+        .limit(50);
+      if (!error && data && data.length) {
+        var numSet = new Set(docs.map(function(d){ return String(d.num || d.numero || '').replace(/\s+/g,'').toUpperCase(); }));
+        data.forEach(function(row){
+          var rawNum = String(row.numero || row.num || '').trim();
+          var cleanNum = rawNum.replace(/\s+/g,'').toUpperCase();
+          if (cleanNum && !numSet.has(cleanNum)) {
+            var linesParsed = [];
+            if (typeof row.lignes === 'string') {
+              try { linesParsed = JSON.parse(row.lignes); } catch(e){}
+            } else if (Array.isArray(row.lignes)) {
+              linesParsed = row.lignes;
+            }
+            docs.push({
+              num: rawNum,
+              numero: rawNum,
+              type: row.type || 'Proforma Vente',
+              statut: row.statut || 'Brouillon',
+              date: row.date || '',
+              clientCode: row.clientCode || '',
+              clientNom: row.clientNom || row.tiers || '',
+              depot: row.depot || 'DP02 DEPOT RESTO',
+              reference: row.reference || row.refClient || '',
+              refClient: row.refClient || row.reference || '',
+              numeroTable: row.numeroTable || row.table || '',
+              numeroChambre: row.numeroChambre || row.chambre || '',
+              lines: linesParsed,
+              totalHT: Number(row.totalHT) || 0,
+              totalTVA: Number(row.totalTVA) || 0,
+              totalTTC: Number(row.totalTTC) || 0,
+              savedAt: row.created_at || (row.id ? new Date(row.id).toISOString() : new Date().toISOString()),
+              fromSupabase: true
+            });
+            numSet.add(cleanNum);
+          }
+        });
+      }
+    } catch(err){
+      console.warn('Supabase documents_vente sync ignored :', err);
+    }
+  }
+
+  // Trier par date décroissante
+  docs.sort(function(a, b){
+    var da = new Date(a.savedAt || a.date || 0).getTime();
+    var db = new Date(b.savedAt || b.date || 0).getTime();
+    return db - da;
+  });
+
+  CURRENT_HIST_DOCS = docs;
+  return docs;
+}
+
+async function openHistorique(){
+  var modal = $('modal-historique');
+  if (!modal) return;
+  modal.classList.add('open');
+  await renderHistorique();
+}
+
+function closeHistorique(){
+  var modal = $('modal-historique');
+  if (modal) modal.classList.remove('open');
+}
+
+async function renderHistorique(){
+  var tbody = $('hist-tbody');
+  var emptyEl = $('hist-empty');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;padding:24px;color:#64748B;">Chargement de l\'historique...</td></tr>';
+  var docs = await loadHistoriqueDocs();
+
+  updateHistCount();
+
+  if (!docs.length) {
+    tbody.innerHTML = '';
+    if (emptyEl) emptyEl.style.display = 'block';
+    return;
+  }
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  tbody.innerHTML = docs.map(function(d, i){
+    var num = d.num || d.numero || ('DOC-' + (i + 1));
+    var client = (d.clientNom || (d.clientCode ? d.clientCode + ' — Client' : 'Client Divers'));
+    var date = d.date || '—';
+    var depot = d.depot || 'DP02 DEPOT RESTO';
+    var ttc = Number(d.totalTTC) || 0;
+    var st = d.statut || 'Brouillon';
+    var pillClass = (st === 'Validée' ? 'validee' : st === 'Comptabilisée' ? 'compta' : st === 'Annulée' ? 'annulee' : '');
+
+    var infoTags = [];
+    if (d.numeroTable) infoTags.push('Table ' + d.numeroTable);
+    if (d.numeroChambre) infoTags.push('Ch. ' + d.numeroChambre);
+    if (d.reference || d.refClient) infoTags.push('Réf: ' + (d.reference || d.refClient));
+    var tagsHtml = infoTags.length ? ' <span style="font-size:10.5px;font-weight:700;color:#2563EB;background:#EFF6FF;padding:2px 6px;border-radius:4px;border:1px solid #BFDBFE;margin-left:5px;">' + esc(infoTags.join(' • ')) + '</span>' : '';
+
+    return '<tr>' +
+      '<td><span class="hist-num" onclick="openDocFromHist(' + i + ')" title="Cliquer pour charger ce document">' + esc(num) + '</span></td>' +
+      '<td><span class="hist-client">' + esc(client) + '</span>' + tagsHtml + '</td>' +
+      '<td>' + esc(date) + '</td>' +
+      '<td><span style="font-size:11.5px;color:#475569;">' + esc(depot) + '</span></td>' +
+      '<td class="hist-ttc">' + f0(ttc) + ' Ar</td>' +
+      '<td style="text-align:center;"><span class="pill ' + pillClass + '" style="font-size:10.5px;padding:2px 8px;">' + esc(st) + '</span></td>' +
+      '<td>' +
+        '<div class="hist-btn-group">' +
+          '<button class="hist-btn-open" onclick="openDocFromHist(' + i + ')" title="Ouvrir ce document">' +
+            '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>' +
+            'Ouvrir' +
+          '</button>' +
+          '<button class="hist-btn-del" onclick="deleteDocFromHist(' + i + ')" title="Supprimer ce document">' +
+            '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>' +
+            'Supprimer' +
+          '</button>' +
+        '</div>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function openDocFromHist(i){
+  var doc = CURRENT_HIST_DOCS[i];
+  if (!doc) return;
+
+  $('f-type').value = doc.type || 'Proforma Vente';
+  $('f-num').value = doc.num || doc.numero || genNum();
+  if (doc.date) $('f-date').value = doc.date;
+  $('f-statut').value = doc.statut || 'Brouillon';
+  if (doc.depot && $('f-depot')) $('f-depot').value = doc.depot;
+  if ($('f-table')) $('f-table').value = doc.numeroTable || doc.table || '';
+  if ($('f-chambre')) $('f-chambre').value = doc.numeroChambre || doc.chambre || '';
+  if ($('f-ref')) $('f-ref').value = doc.reference || '';
+  if ($('f-repr') && doc.repr) $('f-repr').value = doc.repr;
+  if ($('f-aff') && doc.affaire) $('f-aff').value = doc.affaire;
+  if ($('f-mode') && doc.mode) $('f-mode').value = doc.mode;
+  if ($('f-entete')) $('f-entete').value = doc.entete || '';
+  if ($('f-pn')) $('f-pn').value = doc.poidsNet || '0,000';
+  if ($('f-pb')) $('f-pb').value = doc.poidsBrut || '0,000';
+
+  // Client
+  var code = doc.clientCode || '';
+  $('f-ccode').value = code;
+  var selCli = $('f-client');
+  if (selCli) {
+    selCli.value = code;
+    if (code && selCli.value !== code) {
+      var opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = doc.clientNom || code;
+      opt.selected = true;
+      selCli.appendChild(opt);
+    }
+  }
+  pickClient();
+
+  // Si c'était un client agence avec un libellé personnalisé
+  if (code === AGENCE_CODE && doc.clientNom) {
+    var parts = doc.clientNom.split('—');
+    var agencyName = parts.length > 1 ? parts[1].trim() : doc.clientNom;
+    var o = agenceOption();
+    if (o) o.textContent = AGENCE_CODE + ' — ' + agencyName;
+  }
+
+  // Lignes du tableau
+  lines = (doc.lines || []).map(function(l){
+    return {
+      code: l.code || '',
+      name: l.name || l.article || '',
+      pu: Number(l.pu) || 0,
+      qty: Number(l.qty || l.qte) || 1,
+      cond: l.cond || 'KG',
+      rem: Number(l.rem || l.remise) || 0,
+      tva: Number(l.tva) || 0
+    };
+  });
+  sel = -1;
+
+  syncTitle();
+  render();
+  closeHistorique();
+  toast('Document ' + (doc.num || doc.numero) + ' chargé avec succès !', false);
+}
+
+async function deleteDocFromHist(i){
+  var doc = CURRENT_HIST_DOCS[i];
+  if (!doc) return;
+  var num = doc.num || doc.numero;
+  if (!confirm('Supprimer définitivement le document ' + num + ' de l\'historique ?')) return;
+
+  // 1. Suppression du localStorage
+  try {
+    var stored = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+    var cleanNum = String(num).replace(/\s+/g,'').toUpperCase();
+    stored = stored.filter(function(d){
+      var dn = String(d.num || d.numero || '').replace(/\s+/g,'').toUpperCase();
+      return dn !== cleanNum;
+    });
+    localStorage.setItem('nxm_docs', JSON.stringify(stored));
+  } catch(e){}
+
+  // 2. Suppression de Supabase si disponible
+  var sb = getSupabase();
+  if (sb && num) {
+    try {
+      await sb.from('documents_vente').delete().eq('numero', num);
+    } catch(err){
+      console.warn('Erreur suppression Supabase documents_vente :', err);
+    }
+  }
+
+  CURRENT_HIST_DOCS.splice(i, 1);
+  await renderHistorique();
+  updateHistCount();
+  toast('Document ' + num + ' supprimé de l\'historique.', false);
 }
 
 /* ==========================================================================
