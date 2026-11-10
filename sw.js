@@ -1,4 +1,4 @@
-const CACHE_NAME = 'nexus-proforma-v6';
+const CACHE_NAME = 'nexus-proforma-v12';
 const APP_SHELL = ['./', './index.html', './manifest.json', './sw.js'];
 
 self.addEventListener('install', event => {
