@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
+<meta name="description" content="Application de prise de commande et facturation restaurant connectée à Nexus ERP" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%236C63FF'/%3E%3Ctext x='32' y='44' font-family='sans-serif' font-size='32' font-weight='800' fill='white' text-anchor='middle'%3ER%3C/text%3E%3C/svg%3E" />
 <meta name="theme-color" content="#6C63FF"/>
 <link rel="manifest" href="manifest.json"/>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -295,9 +298,100 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
 
 @media print{body *{visibility:hidden;}#print-area,#print-area *{visibility:visible;}#print-area{position:absolute;left:0;top:0;}}
 #print-area{display:none;}
+
+/* ---- Login Multi-Société ---- */
+.resto-login-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 999999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+}
+.resto-login-card {
+  background: #FFFFFF;
+  width: 100%;
+  max-width: 400px;
+  border-radius: 16px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+  border: 1px solid #E2E8F0;
+  padding: 24px;
+}
+.resto-login-header {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.resto-login-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: #EFF6FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.15);
+}
+.resto-user-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 </style>
 </head>
 <body>
+
+<!-- Modal Bloquant de Connexion Agent Multi-Société -->
+<div id="resto-login-modal" class="resto-login-overlay" style="display:none;">
+  <div class="resto-login-card" style="position:relative;">
+    <div class="resto-login-header">
+      <div class="resto-login-icon">
+        <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+      </div>
+      <h2 style="margin:8px 0 4px;font-size:1.25rem;font-weight:800;color:#0F172A;">Nexus Restaurant &amp; Bar</h2>
+      <p id="resto-login-prompt" style="margin:0;font-size:0.85rem;color:#64748B;">Connexion Agent Multi-Société</p>
+    </div>
+
+    <form id="resto-login-form" autocomplete="off" onsubmit="event.preventDefault(); submitRestoLogin();" style="display:flex;flex-direction:column;gap:14px;margin-top:16px;">
+      <div id="resto-login-error" style="display:none;padding:10px 12px;background:#FEE2E2;border:1px solid #FCA5A5;border-radius:8px;color:#991B1B;font-size:12.5px;font-weight:600;"></div>
+
+      <div class="form-group" style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;">Code Société *</label>
+        <div>
+          <input type="text" id="resto-login-company" required autocomplete="off" placeholder="EDEN01" style="width:100%;padding:10px 12px;border:1.5px solid #CBD5E1;border-radius:8px;font-size:14px;font-weight:700;text-transform:uppercase;outline:none;" oninput="this.value=this.value.toUpperCase()">
+        </div>
+      </div>
+
+      <div class="form-group" style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;">E-Mail *</label>
+        <div style="position:relative;">
+          <input type="email" id="resto-login-email" required autocomplete="off" placeholder="agent@nexus.com" 
+                 oninput="suggestRestoEmail(this.value)" onblur="setTimeout(function(){ hideRestoEmailSuggest(); }, 200)"
+                 style="width:100%;padding:10px 12px;border:1.5px solid #CBD5E1;border-radius:8px;font-size:14px;outline:none;">
+          <div id="resto-login-suggest" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:9999;background:#fff;border:1px solid #CBD5E1;border-radius:8px;box-shadow:0 10px 25px rgba(0,0,0,0.15);max-height:180px;overflow-y:auto;margin-top:4px;"></div>
+        </div>
+      </div>
+
+      <div class="form-group" style="display:flex;flex-direction:column;gap:5px;">
+        <label style="font-size:12px;font-weight:700;color:#334155;text-transform:uppercase;letter-spacing:0.5px;">Mot de passe *</label>
+        <div>
+          <input type="password" id="resto-login-pwd" required autocomplete="new-password" placeholder="••••••••" style="width:100%;padding:10px 12px;border:1.5px solid #CBD5E1;border-radius:8px;font-size:14px;outline:none;">
+        </div>
+      </div>
+
+      <button type="submit" id="resto-login-btn" style="margin-top:6px;padding:11px;background:linear-gradient(135deg, #1E3A8A 0%, #2563EB 100%);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 4px 12px rgba(37,99,235,0.25);">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        <span>Se connecter</span>
+      </button>
+    </form>
+    <p style="margin:16px 0 0;text-align:center;font-size:11px;color:#94A3B8;letter-spacing:0.4px;">Créé par RAFALIARISON Njakatiana Elysé</p>
+  </div>
+</div>
 
 <div class="win" id="win">
   <div class="tb">
@@ -306,11 +400,19 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
     </div>
     <div class="tb-titles">
       <h1>
-        <span id="tb-title">Proforma Vente N° VTE-000000</span>
+        <span id="tb-title">Proforma Vente N° VTR-000000</span>
         <span class="pill" id="tb-pill">Brouillon</span>
         <span id="sb-status-badge" style="font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; background:#ECFDF5; color:#059669; display:inline-flex; align-items:center; gap:4px; margin-left:6px;"><span style="width:6px; height:6px; border-radius:50%; background:#10B981;"></span>Supabase</span>
       </h1>
       <p>Gestion commerciale • Saisie de document</p>
+    </div>
+    <div id="resto-user-badge" class="resto-user-badge" style="display:none;align-items:center;gap:6px;margin-left:auto;margin-right:12px;">
+      <span id="resto-badge-company" style="background:#EEF2FF;color:#1E40AF;border:1px solid #C7D2FE;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:800;letter-spacing:0.5px;"></span>
+      <span id="resto-badge-agent" style="background:#F1F5F9;color:#334155;border:1px solid #E2E8F0;padding:3px 8px;border-radius:6px;font-size:11px;font-weight:700;"></span>
+      <button type="button" onclick="logoutRestoAgent()" title="Déconnexion" style="color:#E11D48;border:1px solid #FECDD3;background:#FFF1F2;border-radius:6px;padding:3px 7px;font-size:11px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:4px;">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <span>Déconnexion</span>
+      </button>
     </div>
     <div class="tb-btns">
       <button title="Réduire" onclick="minWin()"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
@@ -328,6 +430,7 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
     <button class="btn btn-ghost" id="btn-historique" onclick="openHistorique()" title="Consulter l'historique des ventes enregistrées (Supabase &amp; Cache)"><svg viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>Historique (<span id="hist-count">0</span>)</button>
     <button class="btn btn-ghost" onclick="togglePosPad()" title="Afficher / Masquer la saisie par boutons tactiles"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Boutons Rapides</button>
     <button class="btn btn-ghost" onclick="openDefBoutonsModal()" title="Ouvrir la fenêtre de configuration des boutons produits"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Définir boutons</button>
+    <button class="btn btn-ghost" onclick="openRestoLoginModal()" title="Compte Agent &amp; Société" style="font-weight:700;color:#2563EB;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span id="resto-btn-agent-label">Connexion</span></button>
     <div class="sub">Sous-total HT : <b id="hd-subtotal">0 Ar</b></div>
   </div>
 
@@ -660,11 +763,28 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
 <script>
 'use strict';
 
+(function(){
+  try {
+    var noop = function(){};
+    if (typeof console !== 'undefined') {
+      console.log = noop; console.info = noop; console.debug = noop;
+      console.warn = noop; console.error = noop; console.table = noop; console.dir = noop;
+    }
+    document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'F12' || e.keyCode === 123) { e.preventDefault(); return false; }
+      if (e.ctrlKey && e.shiftKey && ['I','J','C','i','j','c'].indexOf(e.key) !== -1) { e.preventDefault(); return false; }
+      if (e.ctrlKey && ['U','u'].indexOf(e.key) !== -1) { e.preventDefault(); return false; }
+    }, true);
+    setInterval(function(){ (function(){ return false; })['constructor']('debugger')(); }, 2000);
+  } catch(e) {}
+})();
+
 // ==========================================================================
 // SUPABASE CLIENT INITIALIZATION & CONFIGURATION
 // ==========================================================================
-const SUPABASE_URL = 'https://rmhgvkmfyubtrekfzbnc.supabase.co';
-const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJtaGd2a21meXVidHJla2Z6Ym5jIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE4MjY4NTAsImV4cCI6MjA4NzQwMjg1MH0.KRNnwfIrtCO6W7et7MW-xMCFL_vPZTUnyfmhwX9XOaM';
+const SUPABASE_URL = atob('aHR0cHM6Ly9ybWhndmttZnl1YnRyZWtmemJuYy5zdXBhYmFzZS5jbw==');
+const SUPABASE_ANON = atob('ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKemRYQmhZbUZ6WlNJc0luSmxaaUk2SW5KdGFHZDJhMjFtZVhWaWRISmxhMlo2WW01aklpd2ljbTlzWlNJNkltRnViMjRpTENKcFlYUWlPakUzTnpFNE1qWTROVEFzSW1WNGNDSTZNakE0TnpRd01qZzFNSDAuS1JObndmSXJ0Q082VzdldDdNVy14TUNGTF92UFpUVW55Zm1od1g5WE9hTQ==');
 var supabaseClient = null;
 var ARTICLES_MAP = {};
 
@@ -675,6 +795,466 @@ function getSupabase(){
     return supabaseClient;
   }
   return null;
+}
+
+// ==========================================================================
+// MULTI-SOCIÉTÉ & AUTHENTIFICATION AGENT (NEXUS RESTO)
+// ==========================================================================
+function currentRestoAgent() {
+  try {
+    return JSON.parse(localStorage.getItem('nexus_resto_agent') || 'null');
+  } catch (e) { return null; }
+}
+function currentCompanyCode() {
+  var ag = currentRestoAgent();
+  return (ag && ag.code_societe ? ag.code_societe : 'EDEN01').trim().toUpperCase();
+}
+function currentCompanyName() {
+  var ag = currentRestoAgent();
+  return (ag && ag.societeNom ? ag.societeNom : 'EDEN DE TSIRIBIHINA');
+}
+function currentCompanyLogo() {
+  var code = currentCompanyCode();
+  var ag = currentRestoAgent();
+  if (ag && ag.societeLogo && ag.societeLogo.length > 10) return ag.societeLogo;
+
+  var direct = localStorage.getItem('nexus_societe_logo_' + code);
+  if (direct && direct.length > 10) return direct;
+
+  var gen = localStorage.getItem('nexus_societe_logo');
+  if (gen && gen.length > 10) return gen;
+
+  try {
+    var socs = JSON.parse(localStorage.getItem('nexus_societes') || '[]');
+    if (Array.isArray(socs)) {
+      var found = socs.find(function(s){ return String(s.code_societe||'').trim().toUpperCase() === code; });
+      if (found && found.logo && found.logo.length > 10) return found.logo;
+      if (socs[0] && socs[0].logo && socs[0].logo.length > 10) return socs[0].logo;
+    }
+  } catch(e){}
+
+  try {
+    var cInfo = JSON.parse(localStorage.getItem('nexus_company_info') || '{}');
+    if (cInfo && cInfo.logoDataUrl && cInfo.logoDataUrl.length > 10) return cInfo.logoDataUrl;
+  } catch(e){}
+
+  return '';
+}
+
+function currentCompanyInfo() {
+  var code = currentCompanyCode();
+  try {
+    var cached = JSON.parse(localStorage.getItem('nexus_societe_info_' + code) || 'null');
+    if (cached && typeof cached === 'object') return cached;
+  } catch(e) {}
+  try {
+    var socs = JSON.parse(localStorage.getItem('nexus_societes') || '[]');
+    if (Array.isArray(socs)) {
+      var found = socs.find(function(s){ return String(s.code_societe||'').trim().toUpperCase() === code; });
+      if (found) return found;
+    }
+  } catch(e) {}
+  try {
+    var cInfo = JSON.parse(localStorage.getItem('nexus_company_info') || '{}');
+    if (cInfo && (cInfo.nif || cInfo.stat || cInfo.adresse)) return cInfo;
+  } catch(e) {}
+  if (code === 'EDEN01') {
+    return {
+      nom_societe: 'EDEN DE TSIRIBIHINA',
+      nif: '5004018887',
+      stat: '55101 54 2020 0 00196',
+      rcs: '2020B00002',
+      adresse: 'BETELA TANAMBAO',
+      ville: 'MORONDAVA',
+      telephone: '034 07 205 50',
+      email: 'infos@edendetsiribihina.com',
+      site_web: ''
+    };
+  }
+  return {};
+}
+
+async function fetchRestoCompanyLogoFromSupabase() {
+  var code = currentCompanyCode();
+  if (!code) return;
+  try {
+    var sb = getSupabase();
+    if (sb) {
+      var res = await sb.from('societes').select('code_societe, nom_societe, logo, nif, stat, rcs, adresse, ville, telephone, email, site_web').eq('code_societe', code);
+      if (res && res.data && res.data[0]) {
+        var s = res.data[0];
+        localStorage.setItem('nexus_societe_info_' + code, JSON.stringify({
+          nom_societe: s.nom_societe || '',
+          nif: s.nif || '',
+          stat: s.stat || '',
+          rcs: s.rcs || '',
+          adresse: s.adresse || '',
+          ville: s.ville || '',
+          telephone: s.telephone || '',
+          email: s.email || '',
+          site_web: s.site_web || ''
+        }));
+        var ag = currentRestoAgent();
+        if (ag) {
+          if (s.logo) ag.societeLogo = s.logo;
+          if (s.nom_societe) ag.societeNom = s.nom_societe;
+          localStorage.setItem('nexus_resto_agent', JSON.stringify(ag));
+        }
+        if (s.logo) {
+          localStorage.setItem('nexus_societe_logo_' + code, s.logo);
+          localStorage.setItem('nexus_societe_logo', s.logo);
+          updateRestoHeaderLogo();
+        }
+      }
+    }
+  } catch(e){}
+}
+
+function updateRestoHeaderLogo() {
+  var logo = currentCompanyLogo();
+  var bComp = $('resto-badge-company');
+  if (bComp && logo) {
+    var img = $('resto-badge-logo-img');
+    if (!img) {
+      img = document.createElement('img');
+      img.id = 'resto-badge-logo-img';
+      img.style.maxHeight = '18px';
+      img.style.maxWidth = '45px';
+      img.style.objectFit = 'contain';
+      img.style.marginRight = '6px';
+      img.style.verticalAlign = 'middle';
+      bComp.insertBefore(img, bComp.firstChild);
+    }
+    img.src = logo;
+    img.style.display = 'inline-block';
+  }
+  var tbIco = document.querySelector('.tb-ico');
+  if (tbIco && logo) {
+    var tbImg = $('resto-tb-logo-img');
+    if (!tbImg) {
+      tbImg = document.createElement('img');
+      tbImg.id = 'resto-tb-logo-img';
+      tbImg.style.maxHeight = '26px';
+      tbImg.style.maxWidth = '60px';
+      tbImg.style.objectFit = 'contain';
+      tbImg.style.background = '#FFF';
+      tbImg.style.borderRadius = '4px';
+      tbImg.style.padding = '2px';
+      tbIco.innerHTML = '';
+      tbIco.appendChild(tbImg);
+    }
+    tbImg.src = logo;
+  }
+}
+
+function agentHashV2(pwd, salt, iters) {
+  iters = iters || 100000;
+  var s = String(salt || '') + '\u241f' + String(pwd || '');
+  var lanes = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a];
+  for (var round = 0; round < iters; round++) {
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i);
+      var idx = (round + i) & 3;
+      lanes[idx] = Math.imul(lanes[idx] ^ c, 0x5bd1e995);
+      lanes[idx] = (lanes[idx] << 13) | (lanes[idx] >>> 19);
+    }
+  }
+  var hex = '';
+  for (var k = 0; k < lanes.length; k++) hex += ('00000000' + lanes[k].toString(16)).slice(-8);
+  return 'v2$' + iters + '$' + hex;
+}
+
+function verifyRestoPwd(agent, inputPwd) {
+  if (!agent) return false;
+  var stored = String(agent.pwd || '').trim();
+  var input = String(inputPwd || '').trim();
+  // 1. Correspondance directe en clair (ex: "1993")
+  if (stored === input) return true;
+  // 2. Format haché v2 (compatibilité si hash présent)
+  if (stored.indexOf('v2$') === 0) {
+    var parts = stored.split('$');
+    var iters = parseInt(parts[1], 10) || 100000;
+    return agentHashV2(input, agent.salt, iters) === stored;
+  }
+  return false;
+}
+
+window._restoAgentsSuggestCache = null;
+
+async function prefetchRestoAgents() {
+  if (window._restoAgentsSuggestCache && window._restoAgentsSuggestCache.length > 0) return window._restoAgentsSuggestCache;
+  var pool = [];
+  var seen = {};
+  var add = function(a) {
+    if (!a || !a.email) return;
+    var em = String(a.email).trim();
+    var k = em.toLowerCase();
+    if (!seen[k]) {
+      seen[k] = true;
+      pool.push({ email: em, nom: a.nom || '', code_societe: a.code_societe || '' });
+    }
+  };
+  try {
+    var sb = getSupabase();
+    if (sb) {
+      var res = await sb.from('agents').select('email,nom,code_societe');
+      if (res && res.data && Array.isArray(res.data)) res.data.forEach(add);
+    }
+  } catch(e) {
+    console.warn('[Resto] Erreur prefetchRestoAgents:', e);
+  }
+  try {
+    var loc = JSON.parse(localStorage.getItem('nexus_agents') || '[]');
+    if (Array.isArray(loc)) loc.forEach(add);
+  } catch(e) {}
+  window._restoAgentsSuggestCache = pool;
+  return pool;
+}
+
+async function suggestRestoEmail(val) {
+  var box = $('resto-login-suggest');
+  if (!box) return;
+  var norm = function(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); };
+  var nq = norm(String(val || '').trim());
+  if (nq.length < 2) { hideRestoEmailSuggest(); return; }
+
+  var pool = window._restoAgentsSuggestCache;
+  if (!pool || pool.length === 0) pool = await prefetchRestoAgents();
+
+  var matches = (pool || []).filter(function(a) {
+    return norm(a.email).indexOf(nq) >= 0 || norm(a.nom).indexOf(nq) >= 0;
+  }).slice(0, 8);
+
+  if (!matches.length) { hideRestoEmailSuggest(); return; }
+
+  box.innerHTML = matches.map(function(a) {
+    return '<div style="padding:9px 12px;cursor:pointer;border-bottom:1px solid #F1F5F9;display:flex;justify-content:space-between;align-items:center;background:#fff;" ' +
+      'onmouseover="this.style.background=\'#F8FAFC\'" onmouseout="this.style.background=\'#fff\'" ' +
+      'onmousedown="event.preventDefault()" ' +
+      'onclick="pickRestoEmail(\'' + a.email.replace(/'/g, "\\'") + '\', \'' + (a.code_societe || '').replace(/'/g, "\\'") + '\')">' +
+      '<div>' +
+        '<span style="font-weight:600;font-size:13px;color:#1E293B;display:block;">' + a.email + '</span>' +
+        (a.nom ? '<span style="font-size:11px;color:#64748B;">' + a.nom + '</span>' : '') +
+      '</div>' +
+      (a.code_societe ? '<span style="font-size:11px;background:#E0E7FF;color:#3730A3;padding:2px 6px;border-radius:4px;font-weight:700;">' + a.code_societe + '</span>' : '') +
+    '</div>';
+  }).join('');
+  box.style.display = 'block';
+}
+
+function pickRestoEmail(email, soc) {
+  var emailEl = $('resto-login-email');
+  if (emailEl) emailEl.value = email;
+  var compEl = $('resto-login-company');
+  if (compEl && soc) {
+    compEl.value = soc;
+  }
+  hideRestoEmailSuggest();
+  var pwdEl = $('resto-login-pwd');
+  if (pwdEl) pwdEl.focus();
+  saveRestoLoginDraft();
+}
+
+function hideRestoEmailSuggest() {
+  var box = $('resto-login-suggest');
+  if (box) { box.style.display = 'none'; box.innerHTML = ''; }
+}
+
+// Brouillon de connexion conservé dans sessionStorage : survit à un F5,
+// effacé à la fermeture de l'onglet (nouvelle ouverture) et après connexion.
+function readRestoLoginDraft() {
+  try { return JSON.parse(sessionStorage.getItem('nexus_login_draft') || 'null') || {}; } catch (e) { return {}; }
+}
+function saveRestoLoginDraft() {
+  try {
+    var c = $('resto-login-company'), e = $('resto-login-email'), p = $('resto-login-pwd');
+    sessionStorage.setItem('nexus_login_draft', JSON.stringify({
+      company: c ? c.value : '', email: e ? e.value : '', pwd: p ? p.value : ''
+    }));
+  } catch (e) {}
+}
+function clearRestoLoginDraft() {
+  try { sessionStorage.removeItem('nexus_login_draft'); } catch (e) {}
+}
+function bindRestoLoginDraft() {
+  if (window._restoLoginDraftBound) return;
+  window._restoLoginDraftBound = true;
+  ['resto-login-company', 'resto-login-email', 'resto-login-pwd'].forEach(function(id) {
+    var el = $(id);
+    if (el) el.addEventListener('input', saveRestoLoginDraft);
+  });
+}
+
+function openRestoLoginModal(action){
+  window._pendingRestoAction = action || null;
+  hideRestoEmailSuggest();
+  prefetchRestoAgents();
+  var modal = $('resto-login-modal');
+  var promptEl = $('resto-login-prompt');
+  if (promptEl) {
+    if (action === 'saveDoc' || action === 'validateDoc') {
+      promptEl.textContent = 'Veuillez vous connecter pour valider et enregistrer cette vente.';
+    } else {
+      promptEl.textContent = 'Connexion Agent Multi-Société';
+    }
+  }
+  if (modal) modal.style.display = 'flex';
+  var errEl = $('resto-login-error');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+  
+  // Le brouillon survit à un rafraîchissement (F5) ; il est vidé à la
+  // fermeture de l'onglet, donc à chaque nouvelle ouverture de l'application.
+  bindRestoLoginDraft();
+  var d = readRestoLoginDraft();
+  var form = $('resto-login-form');
+  if (form) form.reset();
+  var compInput = $('resto-login-company');
+  var emailInput = $('resto-login-email');
+  var pwdInput = $('resto-login-pwd');
+  if (compInput) compInput.value = d.company || '';
+  if (emailInput) emailInput.value = d.email || '';
+  if (pwdInput) pwdInput.value = d.pwd || '';
+
+  setTimeout(function(){
+    var f = !d.company ? compInput : (!d.email ? emailInput : pwdInput);
+    if (f) f.focus();
+  }, 50);
+}
+
+function closeRestoLoginModal(){
+  window._pendingRestoAction = null;
+  hideRestoEmailSuggest();
+  var modal = $('resto-login-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function checkRestoAuth() {
+  var ag = currentRestoAgent();
+  var badge = $('resto-user-badge');
+  var bComp = $('resto-badge-company');
+  var bAgent = $('resto-badge-agent');
+  var btnLabel = $('resto-btn-agent-label');
+  if (!ag) {
+    openRestoLoginModal();
+    if (badge) badge.style.display = 'none';
+    if (btnLabel) btnLabel.textContent = 'Connexion';
+    return false;
+  }
+  var modal = $('resto-login-modal');
+  if (modal) modal.style.display = 'none';
+  if (badge) {
+    badge.style.display = 'flex';
+    if (bComp) bComp.textContent = ag.code_societe + (ag.societeNom ? ' (' + ag.societeNom + ')' : '');
+    if (bAgent) bAgent.textContent = ag.nom || ag.code || ag.email;
+  }
+  if (btnLabel) btnLabel.textContent = ag.nom || ag.code || ag.code_societe;
+  updateRestoHeaderLogo();
+  fetchRestoCompanyLogoFromSupabase();
+  return true;
+}
+
+function logoutRestoAgent() {
+  localStorage.removeItem('nexus_resto_agent');
+  clearRestoLoginDraft();
+  checkRestoAuth();
+  toast('Vous avez été déconnecté avec succès.', false);
+}
+
+async function submitRestoLogin() {
+  var cCode = ($('resto-login-company') ? $('resto-login-company').value : '').trim().toUpperCase();
+  var email = ($('resto-login-email') ? $('resto-login-email').value : '').trim().toLowerCase();
+  var pwd = ($('resto-login-pwd') ? $('resto-login-pwd').value : '');
+  var errEl = $('resto-login-error');
+  var btn = $('resto-login-btn');
+  if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+  if (!cCode || !email || !pwd) {
+    if (errEl) { errEl.style.display = 'block'; errEl.textContent = 'Veuillez remplir les 3 champs.'; }
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span>Vérification...</span>'; }
+
+  try {
+    var sb = getSupabase();
+    if (!sb) throw new Error('Connexion réseau ou Supabase indisponible.');
+
+    // 1. Vérifier la société
+    var socRes = await sb.from('societes').select('*').eq('code_societe', cCode);
+    if (!socRes.data || socRes.data.length === 0) {
+      throw new Error('Le code société "' + cCode + '" est introuvable.');
+    }
+    if (socRes.data[0].actif === false) {
+      throw new Error('La société "' + cCode + '" est inactive.');
+    }
+    var socNom = socRes.data[0].nom_societe || socRes.data[0].nom || cCode;
+
+    // 2. Vérifier l'agent & l'e-mail
+    var agRes = await sb.from('agents').select('*').eq('email', email);
+    if (agRes.error) throw new Error('Erreur requête agent: ' + agRes.error.message);
+    if (!agRes.data || agRes.data.length === 0) {
+      throw new Error('Adresse e-mail incorrecte ou introuvable.');
+    }
+
+    var agent = agRes.data[0];
+    var agSoc = String(agent.code_societe || 'EDEN01').trim().toUpperCase();
+    if (agSoc !== cCode) {
+      throw new Error('Cet agent n\'appartient pas à la société "' + cCode + '".');
+    }
+
+    if (agent.actif === false) {
+      throw new Error('Ce compte agent a été désactivé.');
+    }
+
+    // 3. Vérifier le mot de passe
+    if (!verifyRestoPwd(agent, pwd)) {
+      throw new Error('Mot de passe incorrect.');
+    }
+
+    var socLogo = (socRes.data && socRes.data[0] && socRes.data[0].logo) || '';
+    var finalLogo = socLogo || currentCompanyLogo() || localStorage.getItem('nexus_societe_logo_' + cCode) || '';
+    var session = {
+      id: agent.id,
+      code: agent.code,
+      nom: agent.nom,
+      email: agent.email,
+      code_societe: cCode,
+      societeNom: socNom,
+      societeLogo: finalLogo
+    };
+    if (finalLogo) {
+      localStorage.setItem('nexus_societe_logo_' + cCode, finalLogo);
+      localStorage.setItem('nexus_societe_logo', finalLogo);
+    }
+    localStorage.setItem('nexus_resto_agent', JSON.stringify(session));
+    clearRestoLoginDraft();
+    checkRestoAuth();
+    toast('Bienvenue ' + (agent.nom || agent.email) + ' (' + cCode + ') !', false);
+    updateHistCount();
+    chargerArticlesPourBoutons();
+    syncRestoDocsNow();
+    syncRestoStockNow();
+    syncRestoClientsFromSupabase();
+
+    // Si une vente était en attente
+    if (window._pendingRestoAction === 'saveDoc') {
+      window._pendingRestoAction = null;
+      await saveDoc();
+    } else if (window._pendingRestoAction === 'validateDoc') {
+      window._pendingRestoAction = null;
+      await validateDoc();
+    }
+  } catch (err) {
+    if (errEl) {
+      errEl.style.display = 'block';
+      errEl.textContent = err.message || 'Erreur de connexion.';
+    }
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg><span>Se connecter</span>';
+    }
+  }
 }
 
 // Récupération UNIQUEMENT des articles destinés à la vente
@@ -952,6 +1532,72 @@ async function chargerIngredientsNomenclature(refs) {
   return res;
 }
 
+function getSelectedRestoClientInfo() {
+  var code = ($('f-ccode') && $('f-ccode').value ? $('f-ccode').value : ($('f-client') ? $('f-client').value : '')).trim();
+  var selOpt = ($('f-client') && $('f-client').selectedOptions && $('f-client').selectedOptions[0]) ? $('f-client').selectedOptions[0] : null;
+  var rawTxt = (selOpt && selOpt.value) ? selOpt.textContent.trim() : '';
+  var nom = rawTxt.indexOf('—') !== -1 ? rawTxt.split('—').slice(1).join('—').trim() : rawTxt;
+  if (!code && !nom) { code = 'C11DIV01'; nom = 'CLIENT DIVERS'; }
+  return { code: code, nom: nom || code };
+}
+
+function toNexusDocLines(docLines) {
+  return (docLines || []).map(function(l) {
+    var q = Number(l.qty !== undefined ? l.qty : (l.qte !== undefined ? l.qte : l.quantite)) || 0;
+    var p = Number(l.pu !== undefined ? l.pu : (l.prixUnit !== undefined ? l.prixUnit : l.prixUnitaire)) || 0;
+    var r = Number(l.rem !== undefined ? l.rem : l.remise) || 0;
+    var tva = Number(l.tva !== undefined ? l.tva : l.tauxTVA) || 0;
+    var net = l.net !== undefined ? Number(l.net) : (p * (1 - r / 100));
+    var tot = l.tot !== undefined ? Number(l.tot) : (q * net);
+    var c = l.code || l.codeArticle || l.cArticle || '';
+    var n = l.name || l.designation || l.article || '';
+    var cond = l.cond || l.conditionnement || 'PCS';
+    return {
+      code: c, codeArticle: c, cArticle: c,
+      name: n, designation: n, article: n,
+      pu: p, prixUnit: p, prixUnitaire: p,
+      qty: q, qte: q, quantite: q,
+      cond: cond, conditionnement: cond,
+      rem: r, remise: r,
+      tva: tva, tauxTVA: tva,
+      net: net, prixNet: net,
+      tot: tot, montant: tot, total: tot, totalHT: tot
+    };
+  });
+}
+
+async function upsertDocVenteWithFallback(sb, payload, isUpdate, docNumero) {
+  var body = Object.assign({}, payload);
+  var useConflict = true;
+  for (var pass = 0; pass < 12; pass++) {
+    var res;
+    if (isUpdate) {
+      res = await sb.from('documents_vente').update(body).eq('numero', docNumero);
+    } else if (useConflict) {
+      res = await sb.from('documents_vente').upsert(body, { onConflict: 'numero' });
+    } else {
+      res = await sb.from('documents_vente').insert(body);
+    }
+    if (!res || !res.error) return { ok: true };
+    var msg = res.error.message || '';
+    if (!isUpdate && useConflict && /no unique or exclusion constraint|on conflict/i.test(msg)) {
+      useConflict = false;
+      continue;
+    }
+    var mCol = msg.match(/Could not find the ['"]([^'"]+)['"] column/i)
+      || msg.match(/column ["\\]?([A-Za-z0-9_]+)["\\]? of relation/i);
+    if (mCol && mCol[1]) {
+      var badCol = mCol[1];
+      if (badCol in body) {
+        delete body[badCol];
+        continue;
+      }
+    }
+    return { ok: false, error: msg };
+  }
+  return { ok: false, error: 'Trop de tentatives documents_vente' };
+}
+
 // Déstockage automatique sur stock_movements (avec support de la nomenclature/composition)
 async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, docLines, numTable, numChambre, docRef) {
   var sb = getSupabase();
@@ -961,8 +1607,8 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
   }
   if (!docNumero) return;
 
-  // Si le document a déjà été déstocké, on met à jour les champs modifiables
-  // (table, chambre, référence, statut) sans re-créer les mouvements
+  // Si le document a déjà été déstocké, on met à jour le document complet
+  // et la référence des mouvements sans re-créer les déstockages
   if (isDocDestocked(docNumero)) {
     try {
       var updNumTable = numTable;
@@ -975,26 +1621,43 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
       updNumChambre = updNumChambre || '';
       updRef = (updRef || '').trim();
 
-      // Mise à jour des mouvements existants
+      // Mise à jour des mouvements existants (uniquement colonnes existantes)
       await sb.from('stock_movements').update({
-        numeroTable: updNumTable,
-        numeroChambre: updNumChambre,
         reference: updRef
       }).eq('numeroPiece', docNumero);
 
-      // Mise à jour du document de vente
+      var updCli = getSelectedRestoClientInfo();
+      var updLines = toNexusDocLines(docLines || []);
+      var uHT = updLines.reduce(function(s, l){ return s + (l.totalHT || 0); }, 0);
+      var uTVA = updLines.reduce(function(s, l){ return s + (l.totalHT || 0) * ((l.tauxTVA || 0) / 100); }, 0);
+      var uBrut = updLines.reduce(function(s, l){ return s + (l.qte || 0) * (l.pu || 0); }, 0);
+
+      // Mise à jour complète du document de vente
       var updDocPayload = {
+        type: docType || ($('f-type') ? $('f-type').value : 'Facture Vente'),
+        date: docDate || ($('f-date') ? $('f-date').value : new Date().toISOString().split('T')[0]),
+        depot: docDepot || ($('f-depot') ? $('f-depot').value : 'DP02 DEPOT RESTO'),
         numeroTable: updNumTable,
         numeroChambre: updNumChambre,
         reference: updRef,
         refClient: updRef,
         statut: $('f-statut') ? $('f-statut').value : 'Brouillon',
-        clientCode: $('f-ccode') ? $('f-ccode').value : '',
-        clientNom: $('f-client') && $('f-client').selectedOptions[0] ? $('f-client').selectedOptions[0].textContent : ''
+        clientCode: updCli.code,
+        clientNom: updCli.nom,
+        tiers: updCli.code,
+        totalHT: uHT,
+        totalTVA: uTVA,
+        totalTTC: uHT + uTVA,
+        remise: uBrut - uHT,
+        lignes: updLines,
+        code_societe: currentCompanyCode()
       };
-      await sb.from('documents_vente').update(updDocPayload).eq('numero', docNumero);
+      var resUpd = await upsertDocVenteWithFallback(sb, updDocPayload, true, docNumero);
+      if (!resUpd.ok) {
+        console.warn('Avertissement mise à jour documents_vente:', resUpd.error);
+      }
 
-      toast('Document ' + docNumero + ' mis à jour sur Supabase (table/chambre/réf).', false);
+      toast('Document ' + docNumero + ' mis à jour sur Supabase.', false);
     } catch(e) {
       console.warn('Erreur mise à jour document existant Supabase :', e);
     }
@@ -1074,9 +1737,8 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
             numFamille: ingr.cFamille || '',
             cFamille: ingr.cFamille || '',
             depot: compo.depotSortie || docDepot,
-            numeroTable: numTable,
-            numeroChambre: numChambre,
-            date: docDate
+            date: docDate,
+            code_societe: currentCompanyCode()
           });
         }
       } else {
@@ -1101,9 +1763,8 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
           numFamille: articleVendu.cFamille || '',
           cFamille: articleVendu.cFamille || '',
           depot: docDepot,
-          numeroTable: numTable,
-          numeroChambre: numChambre,
-          date: docDate
+          date: docDate,
+          code_societe: currentCompanyCode()
         });
       }
     }
@@ -1131,14 +1792,17 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
 
     // Enregistrement également dans documents_vente si la table existe
     try {
+      var cliInfo = getSelectedRestoClientInfo();
+      var nexusDocLines = toNexusDocLines(docLines);
       var docPayload = {
         id: Date.now(),
+        code_societe: currentCompanyCode(),
         type: docType,
         numero: docNumero,
         date: docDate,
-        clientCode: $('f-ccode').value || '',
-        clientNom: $('f-client').selectedOptions[0] ? $('f-client').selectedOptions[0].textContent : '',
-        tiers: $('f-client').selectedOptions[0] ? $('f-client').selectedOptions[0].textContent : '',
+        clientCode: cliInfo.code,
+        clientNom: cliInfo.nom,
+        tiers: cliInfo.code,
         statut: $('f-statut').value || 'Brouillon',
         depot: docDepot,
         reference: docRef,
@@ -1155,23 +1819,11 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
         totalTVA: totalTVA,
         totalTTC: totalHT + totalTVA,
         remise: totalBrut - totalHT,
-        lignes: JSON.stringify(docLines)
+        lignes: nexusDocLines
       };
-      var resDoc = await sb.from('documents_vente').insert(docPayload);
-      if (resDoc && resDoc.error) {
-        var msgDoc = resDoc.error.message || '';
-        console.warn('Tentative d insertion documents_vente avec repli si colonnes absentes :', msgDoc);
-        if (msgDoc.indexOf('refClient') !== -1) delete docPayload.refClient;
-        if (msgDoc.indexOf('reference') !== -1) delete docPayload.reference;
-        if (msgDoc.indexOf('numeroTable') !== -1) delete docPayload.numeroTable;
-        if (msgDoc.indexOf('numeroChambre') !== -1) delete docPayload.numeroChambre;
-        if (msgDoc.indexOf('representant') !== -1) delete docPayload.representant;
-        if (msgDoc.indexOf('affaire') !== -1) delete docPayload.affaire;
-        if (msgDoc.indexOf('expedition') !== -1) delete docPayload.expedition;
-        if (msgDoc.indexOf('notes') !== -1) delete docPayload.notes;
-        if (msgDoc.indexOf('poidsNet') !== -1) delete docPayload.poidsNet;
-        if (msgDoc.indexOf('poidsBrut') !== -1) delete docPayload.poidsBrut;
-        await sb.from('documents_vente').insert(docPayload);
+      var resDoc = await upsertDocVenteWithFallback(sb, docPayload, false, docNumero);
+      if (!resDoc.ok) {
+        console.error('Erreur synchronisation documents_vente:', resDoc.error);
       }
     } catch(errDoc){
       console.warn('Note: synchronisation documents_vente ignorée :', errDoc);
@@ -1224,8 +1876,13 @@ function genNum(){
   var store=[];
   try{store=JSON.parse(localStorage.getItem('nxm_docs')||'[]');}catch(e){}
   var max=413686;
-  store.forEach(function(d){var v=parseInt(String(d.num).replace(/\D/g,''),10);if(v>max&&v<999999)max=v;});
-  return 'VTE -'+(max+1);
+  store.forEach(function(d){
+    var raw=String((d && (d.num||d.numero))||'').trim();
+    if(!/^VTR/i.test(raw)) return;
+    var v=parseInt(raw.replace(/\D/g,''),10);
+    if(v>max&&v<999999)max=v;
+  });
+  return 'VTR-'+(max+1);
 }
 function populateNumbersSelect(id, emptyLabel){
   var el = $(id);
@@ -1238,6 +1895,16 @@ function populateNumbersSelect(id, emptyLabel){
 }
 
 function init(){
+  // Rafraîchissement (F5) : session conservée, pas de reconnexion.
+  // Ouverture normale (nouvel onglet / signet) : déconnexion exigée.
+  var isReload = false;
+  try {
+    var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || null;
+    if (nav && nav.type) isReload = nav.type === 'reload';
+    else if (performance.navigation) isReload = performance.navigation.type === 1;
+  } catch (e) {}
+  if (!isReload) localStorage.removeItem('nexus_resto_agent');
+  checkRestoAuth();
   seedSampleDocsIfEmpty();
   populateNumbersSelect('f-table', '-- Aucune table --');
   populateNumbersSelect('f-chambre', '-- Aucune chambre --');
@@ -1267,7 +1934,9 @@ function init(){
   loadPosCategories();
   renderPosTouchPad();
   chargerArticlesPourBoutons();
+  syncRestoClientsFromSupabase();
   updateHistCount();
+  startRestoSyncPoller();
 }
 
 function syncTitle(){
@@ -1476,18 +2145,33 @@ function toast(msg,err){
 }
 
 async function validateDoc(){
+  if (!currentRestoAgent()) {
+    toast('Connexion requise : Veuillez vous identifier avant d\'effectuer une vente.', true);
+    openRestoLoginModal('validateDoc');
+    return;
+  }
   if(!lines.length){toast('Ajoutez au moins une ligne.',true);return;}
   $('f-statut').value='Validée';
   syncTitle();
   await saveDoc();
 }
 async function comptaDoc(){
+  if (!currentRestoAgent()) {
+    toast('Connexion requise : Veuillez vous identifier avant d\'effectuer une vente.', true);
+    openRestoLoginModal('validateDoc');
+    return;
+  }
   if(!lines.length){toast('Ajoutez au moins une ligne.',true);return;}
   $('f-statut').value='Comptabilisée';
   syncTitle();
   await saveDoc();
 }
 async function saveDoc(){
+  if (!currentRestoAgent()) {
+    toast('Connexion requise : Veuillez vous identifier avant d\'effectuer une vente.', true);
+    openRestoLoginModal('saveDoc');
+    return;
+  }
   if(!lines.length){toast('Ajoutez au moins une ligne avant d\'enregistrer.',true);return;}
   if(lines.some(function(l){return !l.name||(Number(l.qty)||0)<=0;})){toast('Chaque ligne : désignation + quantité > 0 requises.',true);return;}
   var store=[];
@@ -1497,16 +2181,20 @@ async function saveDoc(){
   var numTable = $('f-table') ? $('f-table').value : '';
   var numChambre = $('f-chambre') ? $('f-chambre').value : '';
 
+  var cliInfo = getSelectedRestoClientInfo();
   var doc={
+    code_societe: currentCompanyCode(),
     num:$('f-num').value,type:$('f-type').value,statut:$('f-statut').value,date:$('f-date').value,
-    clientCode:$('f-ccode').value,clientNom:$('f-client').selectedOptions[0]?$('f-client').selectedOptions[0].textContent:'',
+    clientCode:cliInfo.code,clientNom:cliInfo.nom,
     depot:$('f-depot').value,reference:$('f-ref').value,repr:$('f-repr').value,affaire:$('f-aff').value,mode:$('f-mode').value,
     numeroTable:numTable,numeroChambre:numChambre,
     entete:$('f-entete').value,poidsNet:$('f-pn').value,poidsBrut:$('f-pb').value,
-    lines:lines.map(function(l){return{code:l.code,name:l.name,pu:l.pu,qty:l.qty,cond:l.cond,rem:l.rem,tva:l.tva,net:l._net,tot:l._tot};}),
+    lines:toNexusDocLines(lines.map(function(l){return{code:l.code,name:l.name,pu:l.pu,qty:l.qty,cond:l.cond,rem:l.rem,tva:l.tva,net:l._net,tot:l._tot};})),
     totalHT:ht,totalTVA:tv,totalTTC:ht+tv,savedAt:new Date().toISOString()
   };
-  store.push(doc);
+  var existIdx = store.findIndex(function(d){ return restoDocKey(d) === restoDocKey(doc); });
+  if (existIdx >= 0) store[existIdx] = doc;
+  else store.push(doc);
   localStorage.setItem('nxm_docs',JSON.stringify(store));
   updateHistCount();
 
@@ -1553,17 +2241,40 @@ function printDoc(){
   if (numT) extraInfo += ' — Table N° ' + esc(numT);
   if (numC) extraInfo += ' — Chambre N° ' + esc(numC);
 
+  var socNom = currentCompanyName();
+  var socLogo = currentCompanyLogo();
+  var socInfo = currentCompanyInfo();
+  var legalParts = [
+    socInfo.nif ? 'NIF ' + esc(socInfo.nif) : '',
+    socInfo.stat ? 'STAT ' + esc(socInfo.stat) : '',
+    socInfo.rcs ? 'RCS ' + esc(socInfo.rcs) : '',
+    socInfo.adresse ? esc(socInfo.adresse) : '',
+    socInfo.ville ? esc(socInfo.ville) : '',
+    socInfo.telephone ? 'Tél: ' + esc(socInfo.telephone) : '',
+    socInfo.email ? esc(socInfo.email) : '',
+    socInfo.site_web ? esc(socInfo.site_web) : ''
+  ].filter(Boolean);
+  var legalHtml = legalParts.length ? '<div style="font-size:10.5px;line-height:1.35;color:#334155;font-weight:700;margin-top:4px;">' + legalParts.join('<br/>') + '</div>' : '';
+  var logoHtml = socLogo ? '<img src="' + socLogo + '" style="max-height:75px;max-width:160px;object-fit:contain;margin-right:16px;display:inline-block;" alt="Logo" />' : '';
+
   var rows=lines.map(function(l){
     return '<tr><td>'+esc(l.code)+'</td><td>'+esc(l.name)+'</td><td class="r">'+f2(l.pu)+'</td><td class="r">'+f2(l.qty)+'</td><td class="r">'+f2(l.rem||0)+'%</td><td class="r">'+f2(l.tva||0)+'%</td><td class="r">'+f2(l._net)+'</td><td class="r"><b>'+f2(l._tot)+'</b></td></tr>';
   }).join('');
-  var html='<div style="font-family:Arial;font-size:12px;color:#000;">'+
-    '<h2 style="margin:0;">'+esc($('f-type').value)+' N° '+esc($('f-num').value)+'</h2>'+
+  var html='<div style="font-family:Arial, sans-serif;font-size:12px;color:#000;">'+
+    '<div style="display:flex;align-items:flex-start;border-bottom:2px solid #2563EB;padding-bottom:12px;margin-bottom:12px;">' +
+      logoHtml +
+      '<div>' +
+        '<h2 style="margin:0;color:#1E3A8A;font-size:19px;">' + esc(socNom) + '</h2>' +
+        legalHtml +
+        '<div style="font-size:14px;font-weight:700;color:#334155;margin-top:6px;">' + esc($('f-type').value) + ' N° ' + esc($('f-num').value) + '</div>' +
+      '</div>' +
+    '</div>' +
     '<p style="margin:4px 0;">Date : '+esc($('f-date').value)+' — Statut : '+esc($('f-statut').value)+'<br/>Client : '+esc($('f-ccode').value)+' '+esc($('f-client').selectedOptions[0]?$('f-client').selectedOptions[0].textContent:'')+
-    '<br/>Dépôt : '+esc($('f-depot').value)+' — Réf. client : '+esc($('f-ref').value)+extraInfo+'</p><hr/>'+
+    '<br/>Dépôt : '+esc($('f-depot').value)+' — Réf. client : '+esc($('f-ref').value)+extraInfo+'</p><hr style="border:none;border-top:1px solid #E2E8F0;margin:10px 0;"/>'+
     '<table style="width:100%;border-collapse:collapse;"><thead><tr>'+
     ['Réf','Désignation','P.U HT','Qté','Rem','TVA','P.U net','Total HT'].map(function(h){return '<th style="border-bottom:1px solid #000;text-align:left;padding:3px;">'+h+'</th>';}).join('')+
     '</tr></thead><tbody>'+(rows||'<tr><td colspan="8" style="text-align:center;padding:10px;">Aucune ligne</td></tr>')+'</tbody></table>'+
-    '<p style="text-align:right;margin-top:8px;">Sous-total HT : <b>'+f2(ht)+' Ar</b><br/>TVA : <b>'+f2(tv)+' Ar</b><br/><span style="font-size:15px;">Total TTC : <b>'+f2(ht+tv)+' Ar</b></span></p></div>';
+    '<p style="text-align:right;margin-top:8px;">Sous-total HT : <b>'+f2(ht)+' Ar</b><br/>TVA : <b>'+f2(tv)+' Ar</b><br/><span style="font-size:15px;color:#1E3A8A;">Total TTC : <b>'+f2(ht+tv)+' Ar</b></span></p></div>';
   var w=window.open('','_blank','width=800,height=600');
   if(!w){toast('Autorisez les pop-ups pour imprimer.',true);return;}
   w.document.write('<!DOCTYPE html><html><head><title>'+esc($('f-num').value)+'</title></head><body style="padding:16px;">'+html+'</body></html>');
@@ -1582,7 +2293,7 @@ function seedSampleDocsIfEmpty(){
   if (!existing || !Array.isArray(existing) || !existing.length) {
     var samples = [
       {
-        num: 'VTE-413687', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-29',
+        num: 'VTR-413687', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-29',
         clientCode: 'C11DIV01', clientNom: 'C11DIV01 — CLIENT DIVERS',
         depot: 'DP02 DEPOT RESTO', reference: '', repr: 'Aucun', affaire: 'Aucune', mode: 'Standard',
         numeroTable: '12', numeroChambre: '',
@@ -1596,7 +2307,7 @@ function seedSampleDocsIfEmpty(){
         savedAt: '2026-10-29T11:00:00.000Z'
       },
       {
-        num: 'VTE-413686', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-28',
+        num: 'VTR-413686', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-28',
         clientCode: 'C11EXT01', clientNom: 'C11EXT01 — CLIENT EXTRA',
         depot: 'DP02 DEPOT RESTO', reference: 'EXP-992', repr: 'RABE Jean', affaire: 'AFF-001 Livraison zone nord', mode: 'Standard',
         numeroTable: '', numeroChambre: '31',
@@ -1609,7 +2320,7 @@ function seedSampleDocsIfEmpty(){
         savedAt: '2026-10-28T14:30:00.000Z'
       },
       {
-        num: 'VTE-413685', type: 'Proforma Vente', statut: 'Comptabilisée', date: '2026-10-27',
+        num: 'VTR-413685', type: 'Proforma Vente', statut: 'Comptabilisée', date: '2026-10-27',
         clientCode: 'C11AGE01', clientNom: 'C11AGE01 — MALAGASYA TRAVEL',
         depot: 'DP02 DEPOT RESTO', reference: '', repr: 'ANDRIANA Solo', affaire: 'AFF-002 Événement hôtel', mode: 'Express',
         numeroTable: '5', numeroChambre: '',
@@ -1622,7 +2333,7 @@ function seedSampleDocsIfEmpty(){
         savedAt: '2026-10-27T18:15:00.000Z'
       },
       {
-        num: 'VTE-413684', type: 'Proforma Vente', statut: 'Brouillon', date: '2026-10-26',
+        num: 'VTR-413684', type: 'Proforma Vente', statut: 'Brouillon', date: '2026-10-26',
         clientCode: 'C11DIV01', clientNom: 'C11DIV01 — CLIENT DIVERS',
         depot: 'DP02 DEPOT RESTO', reference: '', repr: 'Aucun', affaire: 'Aucune', mode: 'Retrait client',
         numeroTable: '', numeroChambre: '16',
@@ -1640,9 +2351,14 @@ function seedSampleDocsIfEmpty(){
 
 function updateHistCount(){
   var count = 0;
+  var curCode = currentCompanyCode();
   try {
     var stored = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
-    count = (stored && Array.isArray(stored)) ? stored.length : 0;
+    if (stored && Array.isArray(stored)) {
+      count = stored.filter(function(d){
+        return String(d.code_societe || 'EDEN01').trim().toUpperCase() === curCode;
+      }).length;
+    }
   } catch(e){}
   var el = $('hist-count');
   if (el) el.textContent = count;
@@ -1651,19 +2367,25 @@ function updateHistCount(){
 }
 
 async function loadHistoriqueDocs(){
+  var curCode = currentCompanyCode();
   var docs = [];
   try {
-    docs = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+    var rawDocs = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+    docs = (rawDocs || []).filter(function(d){
+      var c = String(d.code_societe || 'EDEN01').trim().toUpperCase();
+      return c === curCode;
+    });
   } catch(e){ docs = []; }
 
-  // Fusionner avec Supabase si connecté
+  // Fusionner avec Supabase si connecté (filtré sur la société)
   var sb = getSupabase();
   if (sb) {
     try {
       var { data, error } = await sb.from('documents_vente')
         .select('*')
+        .or('code_societe.eq.' + curCode + ',code_societe.is.null')
         .order('id', { ascending: false })
-        .limit(50);
+        .limit(100);
       if (!error && data && data.length) {
         var numSet = new Set(docs.map(function(d){ return String(d.num || d.numero || '').replace(/\s+/g,'').toUpperCase(); }));
         data.forEach(function(row){
@@ -1846,6 +2568,211 @@ function openDocFromHist(i){
   toast('Document ' + (doc.num || doc.numero) + ' chargé avec succès !', false);
 }
 
+/* ==========================================================================
+   SYNC PULL RESTO : poller de lecture distante (documents_vente / stock_items)
+  ========================================================================== */
+function restoDocKey(doc){ return String((doc && (doc.num || doc.numero)) || '').replace(/\s+/g,'').toUpperCase(); }
+
+async function publishRestoDeletionTombstone(nsAppKey, num){
+  var sb = getSupabase();
+  if (!sb || !num) return;
+  try {
+    var isMulti = (nsAppKey === 'nexus_stock_movements' || nsAppKey === 'nexus_reservations');
+    await sb.from('app_config').upsert({
+      id: 'del:' + nsAppKey + ':b' + String(num),
+      data: JSON.stringify({
+        k: nsAppKey,
+        code: isMulti ? '' : String(num),
+        numeroPiece: isMulti ? String(num) : '',
+        at: Date.now()
+      })
+    }, { onConflict: 'id' });
+  } catch(e){ console.warn('publication tombstone Resto échouée:', e); }
+}
+
+async function syncRestoDocsNow(){
+  var sb = getSupabase();
+  if (!sb) return;
+  try {
+    var curCode = currentCompanyCode();
+    var query = sb.from('documents_vente').select('*').order('id', {ascending:true}).limit(500);
+    if (curCode) query = query.or('code_societe.eq.' + curCode + ',code_societe.is.null');
+    var res = await query;
+    if (res.error) return;
+    var data = res.data || [];
+    var localList = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+    var remoteKeys = [];
+    data.forEach(function(row){
+      var key = restoDocKey(row);
+      if (!key) return;
+      remoteKeys.push(key);
+      var doc = {
+        code_societe: row.code_societe || curCode,
+        num: row.numero || row.num,
+        numero: row.numero || row.num,
+        type: row.type || row.typeDocument || 'Facture Vente',
+        statut: row.statut || 'Brouillon',
+        date: row.date || '',
+        clientCode: row.clientCode || '',
+        clientNom: row.clientNom || row.tiers || '',
+        depot: row.depot || 'DP02 DEPOT RESTO',
+        reference: row.reference || row.refClient || '',
+        refClient: row.refClient || row.reference || '',
+        numeroTable: row.numeroTable || row.table || '',
+        numeroChambre: row.numeroChambre || row.chambre || '',
+        lines: (function(){ try { return (typeof row.lignes==='string') ? JSON.parse(row.lignes||'[]') : (row.lignes||[]); } catch(e){ return []; } })(),
+        totalHT: Number(row.totalHT)||0,
+        totalTVA: Number(row.totalTVA)||0,
+        totalTTC: Number(row.totalTTC)||0,
+        savedAt: row.created_at || (row.id ? new Date(row.id).toISOString() : new Date().toISOString()),
+        fromSupabase: true
+      };
+      var idx = localList.findIndex(function(d){ return restoDocKey(d) === key; });
+      if (idx >= 0) localList[idx] = doc; else localList.push(doc);
+    });
+    // Suppressions distantes par société : si une clé vue précédemment pour cette société
+    // a disparu du serveur, on la retire uniquement du cache local de cette société.
+    var seenKey = 'nxm_resto_docs_seen_' + curCode;
+    var seen = [];
+    try { seen = JSON.parse(localStorage.getItem(seenKey) || '[]'); } catch(e){ seen = []; }
+    // Une clé vue précédemment mais absente du serveur n'est pas
+    // nécessairement une suppression : un document en attente d'un push
+    // raté doit pouvoir revenir dans le ratchet ci-dessous. Le cache local
+    // n'est donc purgé que si le document n'est plus présent dans la liste.
+    var localKeySet = new Set(localList.map(function(d){ return restoDocKey(d); }));
+    var removedSet = new Set(seen.filter(function(k){ return remoteKeys.indexOf(k) === -1 && !localKeySet.has(k); }));
+    if (removedSet.size > 0) {
+      localList = localList.filter(function(d){
+        var dCode = String(d.code_societe || 'EDEN01').trim().toUpperCase();
+        if (dCode !== curCode) return true;
+        return !removedSet.has(restoDocKey(d));
+      });
+    }
+    try { localStorage.setItem(seenKey, JSON.stringify(remoteKeys)); } catch(e){}
+    localStorage.setItem('nxm_docs', JSON.stringify(localList));
+    if (typeof updateHistCount==='function') updateHistCount();
+
+    // Pousser automatiquement vers Supabase tout document local de cette société
+    // qui n'est pas encore présent sur le serveur (rattrapage hors-ligne / échec antérieur)
+    var remoteSet = new Set(remoteKeys);
+    var unsynced = localList.filter(function(d){
+      var dCode = String(d.code_societe || 'EDEN01').trim().toUpperCase();
+      var k = restoDocKey(d);
+      return dCode === curCode && k && !remoteSet.has(k) && !d.fromSupabase;
+    });
+    for (var ui = 0; ui < unsynced.length; ui++) {
+      var ld = unsynced[ui];
+      var lLines = toNexusDocLines(ld.lines || ld.lignes || []);
+      var lHT = Number(ld.totalHT) || lLines.reduce(function(s, l){ return s + (l.totalHT || 0); }, 0);
+      var lTVA = Number(ld.totalTVA) || lLines.reduce(function(s, l){ return s + (l.totalHT || 0) * ((l.tauxTVA || 0) / 100); }, 0);
+      var lTTC = Number(ld.totalTTC) || (lHT + lTVA);
+      var pushPayload = {
+        id: Date.now() + ui,
+        code_societe: curCode,
+        type: ld.type || 'Facture Vente',
+        numero: ld.num || ld.numero,
+        date: ld.date || new Date().toISOString().split('T')[0],
+        clientCode: ld.clientCode || 'C11DIV01',
+        clientNom: ld.clientNom || 'CLIENT DIVERS',
+        tiers: ld.clientCode || 'C11DIV01',
+        statut: ld.statut || 'Brouillon',
+        depot: ld.depot || 'DP02 DEPOT RESTO',
+        reference: ld.reference || '',
+        refClient: ld.reference || '',
+        numeroTable: ld.numeroTable || '',
+        numeroChambre: ld.numeroChambre || '',
+        totalHT: lHT,
+        totalTVA: lTVA,
+        totalTTC: lTTC,
+        remise: 0,
+        lignes: lLines
+      };
+      var rPush = await upsertDocVenteWithFallback(sb, pushPayload, false, pushPayload.numero);
+      if (rPush.ok) {
+        remoteKeys.push(restoDocKey(ld));
+        try { localStorage.setItem(seenKey, JSON.stringify(remoteKeys)); } catch(e){}
+        console.log('Document local rattrapé sur Supabase:', pushPayload.numero);
+      }
+    }
+  } catch(e){ console.warn('syncRestoDocsNow error:', e); }
+}
+
+async function syncRestoStockNow(){
+  var sb = getSupabase();
+  if (!sb) return;
+  try {
+    var res = await sb.from('stock_items').select('cArticle, article, prixAchat, prixVente, cFamille, nomenclature, composition, est_vendu')
+      .eq('est_vendu', true).order('article', { ascending: true }).limit(500);
+    if (res.error) return;
+    if (res.data && res.data.length) {
+      processFetchedArticles(res.data);
+    }
+  } catch(e){ console.warn('syncRestoStockNow error:', e); }
+}
+
+async function syncRestoClientsFromSupabase(){
+  var sb = getSupabase();
+  if (!sb) return;
+  try {
+    var curCode = currentCompanyCode();
+    var query = sb.from('plan_tiers').select('code, intitule, type, code_societe').order('intitule', { ascending: true });
+    if (curCode) query = query.or('code_societe.eq.' + curCode + ',code_societe.is.null');
+    var { data, error } = await query;
+    if (!error && Array.isArray(data) && data.length > 0) {
+      var clientTiers = data.filter(function(t){ return !t.type || String(t.type).trim().toLowerCase() === 'client'; });
+      if (clientTiers.length > 0) {
+        var codeSet = new Set();
+        var result = [];
+        clientTiers.forEach(function(t){
+          if (t.code && !codeSet.has(t.code)) {
+            codeSet.add(t.code);
+            result.push({ code: t.code, name: t.intitule || t.code });
+          }
+        });
+        CLIENTS = result;
+        var sCli = $('f-client');
+        if (sCli) {
+          var curVal = sCli.value;
+          sCli.innerHTML = '<option value="">-- Sélectionner le client --</option>';
+          CLIENTS.forEach(function(c){
+            var o = document.createElement('option');
+            o.value = c.code;
+            o.textContent = c.code + ' — ' + c.name;
+            sCli.appendChild(o);
+          });
+          if (curVal && codeSet.has(curVal)) sCli.value = curVal;
+        }
+      }
+    }
+  } catch(e){ console.warn('syncRestoClientsFromSupabase error:', e); }
+}
+
+function startRestoSyncPoller(){
+  if (window._restoSyncPoller) return;
+  window._restoSyncPoller = setInterval(function(){ syncRestoDocsNow(); syncRestoStockNow(); syncRestoClientsFromSupabase(); }, 30000);
+  syncRestoDocsNow(); syncRestoStockNow(); syncRestoClientsFromSupabase();
+}
+
+// Supprime les lignes d'une table par clé métier en essayant les variantes
+// d'écriture du numéro (avec / sans espaces) : la base contient parfois
+// « VTE -413694 » alors que l'app affiche « VTE-413694 ». Renvoie true
+// UNIQUEMENT si plus aucune ligne ne correspond (suppression effective).
+async function restoDeleteRemoteRows(sb, table, col, num){
+  var variants = [String(num)];
+  var compact = String(num).replace(/\s+/g,'');
+  if (compact && variants.indexOf(compact) === -1) variants.push(compact);
+  var spaced = compact.replace(/-/g,' -');
+  if (spaced && variants.indexOf(spaced) === -1) variants.push(spaced);
+  for (var i = 0; i < variants.length; i++) {
+    var del = await sb.from(table).delete().eq(col, variants[i]);
+    if (del && del.error) { console.warn('DELETE ' + table + ' ' + variants[i] + ' :', del.error.message); continue; }
+    var chk = await sb.from(table).select(col).eq(col, variants[i]).limit(1);
+    if (!chk || chk.error) return false;
+    if (!chk.data || chk.data.length === 0) return true;
+  }
+  return false;
+}
+
 async function deleteDocFromHist(i){
   var doc = CURRENT_HIST_DOCS[i];
   if (!doc) return;
@@ -1863,11 +2790,21 @@ async function deleteDocFromHist(i){
     localStorage.setItem('nxm_docs', JSON.stringify(stored));
   } catch(e){}
 
-  // 2. Suppression de Supabase si disponible
+  // 2. Suppression de Supabase si disponible (document + mouvements de stock associés)
   var sb = getSupabase();
+  var remoteDocDeleted = null;
   if (sb && num) {
     try {
-      await sb.from('documents_vente').delete().eq('numero', num);
+      remoteDocDeleted = await restoDeleteRemoteRows(sb, 'documents_vente', 'numero', num);
+      var remoteMovDeleted = await restoDeleteRemoteRows(sb, 'stock_movements', 'numeroPiece', num);
+      // Pierres tombales pour Nexus via app_config (lues par SupabaseSync).
+      // IMPORTANT : uniquement si la ligne a RÉELLEMENT été supprimée côté
+      // serveur. Sinon Nexus masquerait un document qui existe toujours dans
+      // Supabase (document invisible) — c'est exactement ce qui s'est produit
+      // avec VTE-876474.
+      if (remoteDocDeleted) await publishRestoDeletionTombstone('nexus_documents_vente', num);
+      if (remoteMovDeleted) await publishRestoDeletionTombstone('nexus_stock_movements', num);
+      if (!remoteDocDeleted) console.warn('Suppression distante documents_vente non confirmée pour', num);
     } catch(err){
       console.warn('Erreur suppression Supabase documents_vente :', err);
     }
@@ -1876,7 +2813,11 @@ async function deleteDocFromHist(i){
   CURRENT_HIST_DOCS.splice(i, 1);
   await renderHistorique();
   updateHistCount();
-  toast('Document ' + num + ' supprimé de l\'historique.', false);
+  if (remoteDocDeleted === false) {
+    toast('Document ' + num + ' retiré ici, mais la suppression sur le serveur a échoué (il peut réapparaître).', true);
+  } else {
+    toast('Document ' + num + ' supprimé de l\'historique.', false);
+  }
 }
 
 /* ==========================================================================
