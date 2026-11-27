@@ -11,6 +11,31 @@
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%236C63FF'/%3E%3Ctext x='32' y='44' font-family='sans-serif' font-size='32' font-weight='800' fill='white' text-anchor='middle'%3ER%3C/text%3E%3C/svg%3E" />
 <meta name="theme-color" content="#6C63FF"/>
 <link rel="manifest" href="manifest.json"/>
+<script>
+(function(){
+  var cleaned = false;
+  try { cleaned = sessionStorage.getItem('_resto_sw_cleaned') === '1'; } catch(e){}
+  var tasks = [];
+  if ('caches' in window) {
+    tasks.push(caches.keys().then(function(keys){
+      return Promise.all(keys.map(function(k){ return caches.delete(k); })).then(function(){ return keys.length > 0; });
+    }).catch(function(){ return false; }));
+  }
+  if ('serviceWorker' in navigator) {
+    tasks.push(navigator.serviceWorker.getRegistrations().then(function(regs){
+      return Promise.all(regs.map(function(r){ return r.unregister(); })).then(function(){ return regs.length > 0; });
+    }).catch(function(){ return false; }));
+  }
+  if (tasks.length && !cleaned) {
+    Promise.all(tasks).then(function(res){
+      if (res.some(Boolean)) {
+        try { sessionStorage.setItem('_resto_sw_cleaned', '1'); } catch(e){}
+        window.location.reload();
+      }
+    });
+  }
+})();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <title>Proforma Vente — Nexus Resto</title>
 <style>
