@@ -13,8 +13,16 @@
 <link rel="manifest" href="manifest.json"/>
 <script>
 (function(){
-  var cleaned = false;
-  try { cleaned = sessionStorage.getItem('_resto_sw_cleaned') === '1'; } catch(e){}
+  // Aucun cache : purge de tout stockage navigateur à chaque ouverture.
+  try { localStorage.clear(); } catch(e){}
+  try { sessionStorage.clear(); } catch(e){}
+  try {
+    if (window.indexedDB && indexedDB.databases) {
+      indexedDB.databases().then(function(l){ (l||[]).forEach(function(d){ if (d && d.name) indexedDB.deleteDatabase(d.name); }); }).catch(function(){});
+    }
+  } catch(e){}
+  // Garde anti-boucle de rechargement (window.name survit au reload, pas besoin de storage)
+  var cleaned = (window.name === '_resto_clean');
   var tasks = [];
   if ('caches' in window) {
     tasks.push(caches.keys().then(function(keys){
@@ -28,10 +36,7 @@
   }
   if (tasks.length && !cleaned) {
     Promise.all(tasks).then(function(res){
-      if (res.some(Boolean)) {
-        try { sessionStorage.setItem('_resto_sw_cleaned', '1'); } catch(e){}
-        window.location.reload();
-      }
+      if (res.some(Boolean)) { window.name = '_resto_clean'; window.location.reload(); }
     });
   }
 })();
@@ -798,6 +803,20 @@ table.grid tr.sel td{background:var(--pri-soft)!important;}
 <script>
 'use strict';
 
+// ==========================================================================
+// AUCUN CACHE NAVIGATEUR : état en mémoire uniquement (perdu au rechargement).
+// La source de vérité est Supabase. Aucun localStorage ni sessionStorage.
+// ==========================================================================
+var MEM = (function(){
+  var d = {};
+  return {
+    getItem: function(k){ return Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null; },
+    setItem: function(k, v){ d[k] = String(v); },
+    removeItem: function(k){ delete d[k]; },
+    clear: function(){ d = {}; }
+  };
+})();
+
 (function(){
   try {
     var noop = function(){};
@@ -826,7 +845,10 @@ var ARTICLES_MAP = {};
 function getSupabase(){
   if (supabaseClient) return supabaseClient;
   if (window.supabase && typeof window.supabase.createClient === 'function') {
-    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
+    supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+      global: { fetch: function(u, o){ o = Object.assign({}, o || {}); o.cache = 'no-store'; return fetch(u, o); } }
+    });
     return supabaseClient;
   }
   return null;
@@ -837,7 +859,7 @@ function getSupabase(){
 // ==========================================================================
 function currentRestoAgent() {
   try {
-    return JSON.parse(localStorage.getItem('nexus_resto_agent') || 'null');
+    return JSON.parse(MEM.getItem('nexus_resto_agent') || 'null');
   } catch (e) { return null; }
 }
 function currentCompanyCode() {
@@ -853,14 +875,14 @@ function currentCompanyLogo() {
   var ag = currentRestoAgent();
   if (ag && ag.societeLogo && ag.societeLogo.length > 10) return ag.societeLogo;
 
-  var direct = localStorage.getItem('nexus_societe_logo_' + code);
+  var direct = MEM.getItem('nexus_societe_logo_' + code);
   if (direct && direct.length > 10) return direct;
 
-  var gen = localStorage.getItem('nexus_societe_logo');
+  var gen = MEM.getItem('nexus_societe_logo');
   if (gen && gen.length > 10) return gen;
 
   try {
-    var socs = JSON.parse(localStorage.getItem('nexus_societes') || '[]');
+    var socs = JSON.parse(MEM.getItem('nexus_societes') || '[]');
     if (Array.isArray(socs)) {
       var found = socs.find(function(s){ return String(s.code_societe||'').trim().toUpperCase() === code; });
       if (found && found.logo && found.logo.length > 10) return found.logo;
@@ -869,7 +891,7 @@ function currentCompanyLogo() {
   } catch(e){}
 
   try {
-    var cInfo = JSON.parse(localStorage.getItem('nexus_company_info') || '{}');
+    var cInfo = JSON.parse(MEM.getItem('nexus_company_info') || '{}');
     if (cInfo && cInfo.logoDataUrl && cInfo.logoDataUrl.length > 10) return cInfo.logoDataUrl;
   } catch(e){}
 
@@ -879,18 +901,18 @@ function currentCompanyLogo() {
 function currentCompanyInfo() {
   var code = currentCompanyCode();
   try {
-    var cached = JSON.parse(localStorage.getItem('nexus_societe_info_' + code) || 'null');
+    var cached = JSON.parse(MEM.getItem('nexus_societe_info_' + code) || 'null');
     if (cached && typeof cached === 'object') return cached;
   } catch(e) {}
   try {
-    var socs = JSON.parse(localStorage.getItem('nexus_societes') || '[]');
+    var socs = JSON.parse(MEM.getItem('nexus_societes') || '[]');
     if (Array.isArray(socs)) {
       var found = socs.find(function(s){ return String(s.code_societe||'').trim().toUpperCase() === code; });
       if (found) return found;
     }
   } catch(e) {}
   try {
-    var cInfo = JSON.parse(localStorage.getItem('nexus_company_info') || '{}');
+    var cInfo = JSON.parse(MEM.getItem('nexus_company_info') || '{}');
     if (cInfo && (cInfo.nif || cInfo.stat || cInfo.adresse)) return cInfo;
   } catch(e) {}
   if (code === 'EDEN01') {
@@ -918,7 +940,7 @@ async function fetchRestoCompanyLogoFromSupabase() {
       var res = await sb.from('societes').select('code_societe, nom_societe, logo, nif, stat, rcs, adresse, ville, telephone, email, site_web').eq('code_societe', code);
       if (res && res.data && res.data[0]) {
         var s = res.data[0];
-        localStorage.setItem('nexus_societe_info_' + code, JSON.stringify({
+        MEM.setItem('nexus_societe_info_' + code, JSON.stringify({
           nom_societe: s.nom_societe || '',
           nif: s.nif || '',
           stat: s.stat || '',
@@ -933,11 +955,11 @@ async function fetchRestoCompanyLogoFromSupabase() {
         if (ag) {
           if (s.logo) ag.societeLogo = s.logo;
           if (s.nom_societe) ag.societeNom = s.nom_societe;
-          localStorage.setItem('nexus_resto_agent', JSON.stringify(ag));
+          MEM.setItem('nexus_resto_agent', JSON.stringify(ag));
         }
         if (s.logo) {
-          localStorage.setItem('nexus_societe_logo_' + code, s.logo);
-          localStorage.setItem('nexus_societe_logo', s.logo);
+          MEM.setItem('nexus_societe_logo_' + code, s.logo);
+          MEM.setItem('nexus_societe_logo', s.logo);
           updateRestoHeaderLogo();
         }
       }
@@ -1039,7 +1061,7 @@ async function prefetchRestoAgents() {
     console.warn('[Resto] Erreur prefetchRestoAgents:', e);
   }
   try {
-    var loc = JSON.parse(localStorage.getItem('nexus_agents') || '[]');
+    var loc = JSON.parse(MEM.getItem('nexus_agents') || '[]');
     if (Array.isArray(loc)) loc.forEach(add);
   } catch(e) {}
   window._restoAgentsSuggestCache = pool;
@@ -1095,21 +1117,20 @@ function hideRestoEmailSuggest() {
   if (box) { box.style.display = 'none'; box.innerHTML = ''; }
 }
 
-// Brouillon de connexion conservé dans sessionStorage : survit à un F5,
-// effacé à la fermeture de l'onglet (nouvelle ouverture) et après connexion.
+// Brouillon de connexion gardé en mémoire uniquement (perdu au rechargement).
 function readRestoLoginDraft() {
-  try { return JSON.parse(sessionStorage.getItem('nexus_login_draft') || 'null') || {}; } catch (e) { return {}; }
+  try { return JSON.parse(MEM.getItem('nexus_login_draft') || 'null') || {}; } catch (e) { return {}; }
 }
 function saveRestoLoginDraft() {
   try {
     var c = $('resto-login-company'), e = $('resto-login-email'), p = $('resto-login-pwd');
-    sessionStorage.setItem('nexus_login_draft', JSON.stringify({
+    MEM.setItem('nexus_login_draft', JSON.stringify({
       company: c ? c.value : '', email: e ? e.value : '', pwd: p ? p.value : ''
     }));
   } catch (e) {}
 }
 function clearRestoLoginDraft() {
-  try { sessionStorage.removeItem('nexus_login_draft'); } catch (e) {}
+  try { MEM.removeItem('nexus_login_draft'); } catch (e) {}
 }
 function bindRestoLoginDraft() {
   if (window._restoLoginDraftBound) return;
@@ -1189,7 +1210,14 @@ function checkRestoAuth() {
 }
 
 function logoutRestoAgent() {
-  localStorage.removeItem('nexus_resto_agent');
+  MEM.clear();
+  POS_SAVED = null;
+  CURRENT_HIST_DOCS = [];
+  lines = []; sel = -1;
+  loadPosCategories();
+  renderPosTouchPad();
+  render();
+  updateHistCount();
   clearRestoLoginDraft();
   checkRestoAuth();
   toast('Vous avez été déconnecté avec succès.', false);
@@ -1247,7 +1275,7 @@ async function submitRestoLogin() {
     }
 
     var socLogo = (socRes.data && socRes.data[0] && socRes.data[0].logo) || '';
-    var finalLogo = socLogo || currentCompanyLogo() || localStorage.getItem('nexus_societe_logo_' + cCode) || '';
+    var finalLogo = socLogo || currentCompanyLogo() || MEM.getItem('nexus_societe_logo_' + cCode) || '';
     var session = {
       id: agent.id,
       code: agent.code,
@@ -1258,10 +1286,10 @@ async function submitRestoLogin() {
       societeLogo: finalLogo
     };
     if (finalLogo) {
-      localStorage.setItem('nexus_societe_logo_' + cCode, finalLogo);
-      localStorage.setItem('nexus_societe_logo', finalLogo);
+      MEM.setItem('nexus_societe_logo_' + cCode, finalLogo);
+      MEM.setItem('nexus_societe_logo', finalLogo);
     }
-    localStorage.setItem('nexus_resto_agent', JSON.stringify(session));
+    MEM.setItem('nexus_resto_agent', JSON.stringify(session));
     clearRestoLoginDraft();
     checkRestoAuth();
     toast('Bienvenue ' + (agent.nom || agent.email) + ' (' + cCode + ') !', false);
@@ -1270,6 +1298,7 @@ async function submitRestoLogin() {
     syncRestoDocsNow();
     syncRestoStockNow();
     syncRestoClientsFromSupabase();
+    fetchPosCategoriesRemote();
 
     // Si une vente était en attente
     if (window._pendingRestoAction === 'saveDoc') {
@@ -1534,17 +1563,21 @@ function updateSbBadge(connected){
   }
 }
 
-// Journal des documents déjà déstockés (évite les doubles insertions
-// si l'utilisateur clique plusieurs fois sur Enregistrer / Valider / Comptabiliser)
+// Anti-doublon de déstockage : vérifié directement sur Supabase (stock_movements),
+// plus aucun journal local. Renvoie true / false, ou null si la vérification échoue.
 var DESTOCKED_DOCS = {};
-function isDocDestocked(num){
-  try { DESTOCKED_DOCS = JSON.parse(localStorage.getItem('nxm_destocked') || '{}'); } catch(e) { DESTOCKED_DOCS = {}; }
-  return !!DESTOCKED_DOCS[num];
+async function docDestockState(num){
+  if (DESTOCKED_DOCS[num]) return true;
+  var sb = getSupabase();
+  if (!sb) return null;
+  try {
+    var r = await sb.from('stock_movements').select('numeroPiece').eq('numeroPiece', num).limit(1);
+    if (r.error) return null;
+    if (r.data && r.data.length) { DESTOCKED_DOCS[num] = 1; return true; }
+    return false;
+  } catch(e) { return null; }
 }
-function markDocDestocked(num){
-  DESTOCKED_DOCS[num] = 1;
-  try { localStorage.setItem('nxm_destocked', JSON.stringify(DESTOCKED_DOCS)); } catch(e) {}
-}
+function markDocDestocked(num){ DESTOCKED_DOCS[num] = 1; }
 
 // Fiches des ingrédients de nomenclature, chargées depuis stock_items
 // INDÉPENDAMMENT du filtre est_vendu (les ingrédients ne sont pas à vendre)
@@ -1644,7 +1677,12 @@ async function destockerArticlesVendus(docNumero, docType, docDepot, docDate, do
 
   // Si le document a déjà été déstocké, on met à jour le document complet
   // et la référence des mouvements sans re-créer les déstockages
-  if (isDocDestocked(docNumero)) {
+  var destockState = await docDestockState(docNumero);
+  if (destockState === null) {
+    toast('Vérification du stock impossible (réseau). Réessayez.', true);
+    return;
+  }
+  if (destockState) {
     try {
       var updNumTable = numTable;
       var updNumChambre = numChambre;
@@ -1917,8 +1955,8 @@ function genNum(){
       if (m) used.add(m[1]);
     });
   };
-  try { collect(JSON.parse(localStorage.getItem('nxm_docs') || '[]')); } catch(e){}
-  try { collect(JSON.parse(localStorage.getItem('nexus_documents_vente') || '[]')); } catch(e){}
+  try { collect(JSON.parse(MEM.getItem('nxm_docs') || '[]')); } catch(e){}
+  try { collect(JSON.parse(MEM.getItem('nexus_documents_vente') || '[]')); } catch(e){}
   if (typeof CURRENT_HIST_DOCS !== 'undefined' && Array.isArray(CURRENT_HIST_DOCS)) {
     collect(CURRENT_HIST_DOCS);
   }
@@ -1939,17 +1977,8 @@ function populateNumbersSelect(id, emptyLabel){
 }
 
 function init(){
-  // Rafraîchissement (F5) : session conservée, pas de reconnexion.
-  // Ouverture normale (nouvel onglet / signet) : déconnexion exigée.
-  var isReload = false;
-  try {
-    var nav = (performance.getEntriesByType && performance.getEntriesByType('navigation')[0]) || null;
-    if (nav && nav.type) isReload = nav.type === 'reload';
-    else if (performance.navigation) isReload = performance.navigation.type === 1;
-  } catch (e) {}
-  if (!isReload) localStorage.removeItem('nexus_resto_agent');
+  // Pas de stockage : chaque ouverture / rechargement exige une nouvelle connexion.
   checkRestoAuth();
-  seedSampleDocsIfEmpty();
   populateNumbersSelect('f-table', '-- Aucune table --');
   populateNumbersSelect('f-chambre', '-- Aucune chambre --');
   var sCli=$('f-client');
@@ -2219,7 +2248,7 @@ async function saveDoc(){
   if(!lines.length){toast('Ajoutez au moins une ligne avant d\'enregistrer.',true);return;}
   if(lines.some(function(l){return !l.name||(Number(l.qty)||0)<=0;})){toast('Chaque ligne : désignation + quantité > 0 requises.',true);return;}
   var store=[];
-  try{store=JSON.parse(localStorage.getItem('nxm_docs')||'[]');}catch(e){}
+  try{store=JSON.parse(MEM.getItem('nxm_docs')||'[]');}catch(e){}
   var ht=lines.reduce(function(s,l){return s+l._tot;},0);
   var tv=lines.reduce(function(s,l){return s+l._tva;},0);
   var numTable = $('f-table') ? $('f-table').value : '';
@@ -2239,7 +2268,7 @@ async function saveDoc(){
   var existIdx = store.findIndex(function(d){ return restoDocKey(d) === restoDocKey(doc); });
   if (existIdx >= 0) store[existIdx] = doc;
   else store.push(doc);
-  localStorage.setItem('nxm_docs',JSON.stringify(store));
+  MEM.setItem('nxm_docs',JSON.stringify(store));
   updateHistCount();
 
   // Déstockage automatique sur Supabase (avec gestion de composition / nomenclature)
@@ -2331,73 +2360,11 @@ function printDoc(){
    ========================================================================== */
 var CURRENT_HIST_DOCS = [];
 
-function seedSampleDocsIfEmpty(){
-  var existing = null;
-  try { existing = JSON.parse(localStorage.getItem('nxm_docs')); } catch(e){}
-  if (!existing || !Array.isArray(existing) || !existing.length) {
-    var samples = [
-      {
-        num: 'VTR-413687', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-29', isSample: true,
-        clientCode: 'C11DIV01', clientNom: 'C11DIV01 — CLIENT DIVERS',
-        depot: 'DP02 DEPOT RESTO', reference: '', repr: 'Aucun', affaire: 'Aucune', mode: 'Standard',
-        numeroTable: '12', numeroChambre: '',
-        entete: '', poidsNet: '0,000', poidsBrut: '0,000',
-        lines: [
-          { code: '11ZEBUFILE', name: 'FILET DE ZEBU', pu: 7965, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 7965, tot: 7965 },
-          { code: '12POULXXXX', name: 'POULET', pu: 20000, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 20000, tot: 20000 },
-          { code: '13CREVXXXX', name: 'CREVETTE', pu: 1805, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 1805, tot: 1805 }
-        ],
-        totalHT: 29770, totalTVA: 0, totalTTC: 29770,
-        savedAt: '2026-10-29T11:00:00.000Z'
-      },
-      {
-        num: 'VTR-413686', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-28', isSample: true,
-        clientCode: 'C11EXT01', clientNom: 'C11EXT01 — CLIENT EXTRA',
-        depot: 'DP02 DEPOT RESTO', reference: 'EXP-992', repr: 'RABE Jean', affaire: 'AFF-001 Livraison zone nord', mode: 'Standard',
-        numeroTable: '', numeroChambre: '31',
-        entete: '', poidsNet: '0,000', poidsBrut: '0,000',
-        lines: [
-          { code: 'ENT001', name: 'HARICOTVER PARISIEN', pu: 15000, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 15000, tot: 15000 },
-          { code: 'ENT006', name: 'CREME DE LEG VEGETAR', pu: 40000, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 40000, tot: 40000 }
-        ],
-        totalHT: 55000, totalTVA: 0, totalTTC: 55000,
-        savedAt: '2026-10-28T14:30:00.000Z'
-      },
-      {
-        num: 'VTR-413685', type: 'Proforma Vente', statut: 'Comptabilisée', date: '2026-10-27', isSample: true,
-        clientCode: 'C11AGE01', clientNom: 'C11AGE01 — MALAGASYA TRAVEL',
-        depot: 'DP02 DEPOT RESTO', reference: '', repr: 'ANDRIANA Solo', affaire: 'AFF-002 Événement hôtel', mode: 'Express',
-        numeroTable: '5', numeroChambre: '',
-        entete: '', poidsNet: '0,000', poidsBrut: '0,000',
-        lines: [
-          { code: '12POULXXXX', name: 'POULET', pu: 20000, qty: 2, cond: 'KG', rem: 0, tva: 0, net: 20000, tot: 40000 },
-          { code: 'ART009', name: 'Soda 33cl', pu: 1500, qty: 4, cond: 'U', rem: 0, tva: 0, net: 1500, tot: 6000 }
-        ],
-        totalHT: 46000, totalTVA: 0, totalTTC: 46000,
-        savedAt: '2026-10-27T18:15:00.000Z'
-      },
-      {
-        num: 'VTR-413684', type: 'Proforma Vente', statut: 'Brouillon', date: '2026-10-26', isSample: true,
-        clientCode: 'C11DIV01', clientNom: 'C11DIV01 — CLIENT DIVERS',
-        depot: 'DP02 DEPOT RESTO', reference: '', repr: 'Aucun', affaire: 'Aucune', mode: 'Retrait client',
-        numeroTable: '', numeroChambre: '16',
-        entete: '', poidsNet: '0,000', poidsBrut: '0,000',
-        lines: [
-          { code: 'ENT004', name: 'TOMATE FARCIE', pu: 15000, qty: 1, cond: 'KG', rem: 0, tva: 0, net: 15000, tot: 15000 }
-        ],
-        totalHT: 15000, totalTVA: 0, totalTTC: 15000,
-        savedAt: '2026-10-26T09:00:00.000Z'
-      }
-    ];
-    try { localStorage.setItem('nxm_docs', JSON.stringify(samples)); } catch(e){}
-  }
-}
-
 function updateHistCount(){
   var count = 0;
   var curCode = currentCompanyCode();
   try {
-    var stored = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+    var stored = JSON.parse(MEM.getItem('nxm_docs') || '[]');
     if (stored && Array.isArray(stored)) {
       count = stored.filter(function(d){
         return String(d.code_societe || 'EDEN01').trim().toUpperCase() === curCode;
@@ -2414,7 +2381,7 @@ async function loadHistoriqueDocs(){
   var curCode = currentCompanyCode();
   var docs = [];
   try {
-    var rawDocs = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+    var rawDocs = JSON.parse(MEM.getItem('nxm_docs') || '[]');
     docs = (rawDocs || []).filter(function(d){
       var c = String(d.code_societe || 'EDEN01').trim().toUpperCase();
       return c === curCode;
@@ -2653,7 +2620,7 @@ async function syncRestoDocsNow(){
     var res = await query;
     if (res.error) return;
     var data = res.data || [];
-    var localList = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+    var localList = JSON.parse(MEM.getItem('nxm_docs') || '[]');
     var remoteKeys = [];
     data.forEach(function(row){
       var key = restoDocKey(row);
@@ -2687,7 +2654,7 @@ async function syncRestoDocsNow(){
     // a disparu du serveur, on la retire uniquement du cache local de cette société.
     var seenKey = 'nxm_resto_docs_seen_' + curCode;
     var seen = [];
-    try { seen = JSON.parse(localStorage.getItem(seenKey) || '[]'); } catch(e){ seen = []; }
+    try { seen = JSON.parse(MEM.getItem(seenKey) || '[]'); } catch(e){ seen = []; }
     // Seuls les documents locaux non encore envoyés vers Supabase (!fromSupabase)
     // sont protégés contre la purge lors d'une suppression distante.
     var localUnsyncedKeySet = new Set(localList.filter(function(d){ return !d.fromSupabase && !d.isSample; }).map(function(d){ return restoDocKey(d); }));
@@ -2699,8 +2666,8 @@ async function syncRestoDocsNow(){
         return !removedSet.has(restoDocKey(d));
       });
     }
-    try { localStorage.setItem(seenKey, JSON.stringify(remoteKeys)); } catch(e){}
-    localStorage.setItem('nxm_docs', JSON.stringify(localList));
+    try { MEM.setItem(seenKey, JSON.stringify(remoteKeys)); } catch(e){}
+    MEM.setItem('nxm_docs', JSON.stringify(localList));
     if (typeof updateHistCount==='function') updateHistCount();
     var histModalEl = $('hist-modal');
     if (histModalEl && histModalEl.classList.contains('open') && typeof renderHistorique === 'function') {
@@ -2741,7 +2708,7 @@ async function syncRestoDocsNow(){
       return true;
     });
     if (vteDuplicates.length > 0) {
-      localStorage.setItem('nxm_docs', JSON.stringify(localList));
+      MEM.setItem('nxm_docs', JSON.stringify(localList));
       vteDuplicates.forEach(function(dupNum){
         if (!dupNum) return;
         sb.from('documents_vente').delete().eq('numero', dupNum).then(function(){}).catch(function(){});
@@ -2780,8 +2747,8 @@ async function syncRestoDocsNow(){
         ld.fromSupabase = true;
         remoteKeys.push(restoDocKey(ld));
         try {
-          localStorage.setItem(seenKey, JSON.stringify(remoteKeys));
-          localStorage.setItem('nxm_docs', JSON.stringify(localList));
+          MEM.setItem(seenKey, JSON.stringify(remoteKeys));
+          MEM.setItem('nxm_docs', JSON.stringify(localList));
         } catch(e){}
         console.log('Document local rattrapé sur Supabase:', pushPayload.numero);
       }
@@ -2896,15 +2863,15 @@ async function deleteDocFromHist(i){
   var num = doc.num || doc.numero;
   if (!confirm('Supprimer définitivement le document ' + num + ' de l\'historique ?')) return;
 
-  // 1. Suppression du localStorage
+  // 1. Suppression du cache mémoire
   try {
-    var stored = JSON.parse(localStorage.getItem('nxm_docs') || '[]');
+    var stored = JSON.parse(MEM.getItem('nxm_docs') || '[]');
     var cleanNum = String(num).replace(/\s+/g,'').toUpperCase();
     stored = stored.filter(function(d){
       var dn = String(d.num || d.numero || '').replace(/\s+/g,'').toUpperCase();
       return dn !== cleanNum;
     });
-    localStorage.setItem('nxm_docs', JSON.stringify(stored));
+    MEM.setItem('nxm_docs', JSON.stringify(stored));
   } catch(e){}
 
   // 2. Suppression de Supabase si disponible (document + mouvements de stock associés)
@@ -3038,22 +3005,40 @@ var defActiveCatIndex = 0;
 var defSelectedSlot = 0;
 var defCopiedFormat = null;
 
+var POS_SAVED = null; // dernière configuration enregistrée (JSON), en mémoire
+function posCfgId(){ return 'resto_pos_categories:' + currentCompanyCode(); }
+
 function loadPosCategories(){
-  try {
-    var stored = localStorage.getItem('nxm_pos_categories');
-    if (stored) {
-      posCategories = JSON.parse(stored);
-    }
-  } catch(e){}
-  if (!posCategories || !posCategories.length) {
-    posCategories = JSON.parse(JSON.stringify(POS_DEFAULT_CATEGORIES));
-  }
+  var parsed = null;
+  if (POS_SAVED) { try { parsed = JSON.parse(POS_SAVED); } catch(e){} }
+  posCategories = (parsed && Array.isArray(parsed) && parsed.length) ? parsed : JSON.parse(JSON.stringify(POS_DEFAULT_CATEGORIES));
 }
 
-function savePosCategories(){
+async function fetchPosCategoriesRemote(){
+  var sb = getSupabase();
+  if (!sb) return;
   try {
-    localStorage.setItem('nxm_pos_categories', JSON.stringify(posCategories));
-  } catch(e){}
+    var r = await sb.from('app_config').select('data').eq('id', posCfgId()).limit(1);
+    if (r.error || !r.data || !r.data[0] || !r.data[0].data) return;
+    var p = JSON.parse(r.data[0].data);
+    if (Array.isArray(p) && p.length) {
+      POS_SAVED = JSON.stringify(p);
+      loadPosCategories();
+      renderPosTouchPad();
+      var m = $('modal-def-boutons');
+      if (m && m.classList.contains('open')) renderDefModal();
+    }
+  } catch(e){ console.warn('fetchPosCategoriesRemote:', e); }
+}
+
+async function savePosCategories(){
+  POS_SAVED = JSON.stringify(posCategories);
+  var sb = getSupabase();
+  if (!sb) return false;
+  try {
+    var r = await sb.from('app_config').upsert({ id: posCfgId(), data: POS_SAVED }, { onConflict: 'id' });
+    return !(r && r.error);
+  } catch(e){ return false; }
 }
 
 /* Basculer l'affichage du clavier tactile */
@@ -3457,11 +3442,12 @@ function defUpdateCatCode(val){
   }
 }
 
-function defSaveAndClose(){
-  savePosCategories();
+async function defSaveAndClose(){
+  var ok = await savePosCategories();
   renderPosTouchPad();
   closeDefBoutonsModal();
-  toast('Configuration des boutons enregistrée avec succès !', false);
+  if (ok) toast('Configuration des boutons enregistrée avec succès !', false);
+  else toast('Boutons appliqués pour cette session seulement (sauvegarde serveur impossible).', true);
 }
 
 
