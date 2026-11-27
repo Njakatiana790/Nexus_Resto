@@ -4,7 +4,7 @@
   "description": "Saisie de document commercial (proforma, facture, devis) — Nexus Resto.",
   "start_url": "./index.html",
   "scope": "./",
-  "display": "standalone",
+  "display": "minimal-ui",
   "orientation": "any",
   "background_color": "#E9EBF3",
   "theme_color": "#6C63FF",
