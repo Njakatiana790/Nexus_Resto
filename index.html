@@ -1879,16 +1879,25 @@ function pad(n){return String(n).padStart(2,'0');}
 function $(id){return document.getElementById(id);}
 
 function genNum(){
-  var store=[];
-  try{store=JSON.parse(localStorage.getItem('nxm_docs')||'[]');}catch(e){}
-  var max=413686;
-  store.forEach(function(d){
-    var raw=String((d && (d.num||d.numero))||'').trim();
-    if(!/^VTR/i.test(raw)) return;
-    var v=parseInt(raw.replace(/\D/g,''),10);
-    if(v>max&&v<999999)max=v;
-  });
-  return 'VTR-'+(max+1);
+  var used = new Set();
+  var collect = function(arr){
+    if (!Array.isArray(arr)) return;
+    arr.forEach(function(d){
+      var raw = String((d && (d.num || d.numero)) || '').trim().toUpperCase();
+      var m = /^(?:VTR|VTE)-(\d+)$/.exec(raw);
+      if (m) used.add(m[1]);
+    });
+  };
+  try { collect(JSON.parse(localStorage.getItem('nxm_docs') || '[]')); } catch(e){}
+  try { collect(JSON.parse(localStorage.getItem('nexus_documents_vente') || '[]')); } catch(e){}
+  if (typeof CURRENT_HIST_DOCS !== 'undefined' && Array.isArray(CURRENT_HIST_DOCS)) {
+    collect(CURRENT_HIST_DOCS);
+  }
+  for (var i = 0; i < 200; i++) {
+    var n = String(Math.floor(100000 + Math.random() * 900000));
+    if (!used.has(n)) return 'VTR-' + n;
+  }
+  return 'VTR-' + String(Date.now()).slice(-6);
 }
 function populateNumbersSelect(id, emptyLabel){
   var el = $(id);
@@ -2299,7 +2308,7 @@ function seedSampleDocsIfEmpty(){
   if (!existing || !Array.isArray(existing) || !existing.length) {
     var samples = [
       {
-        num: 'VTR-413687', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-29',
+        num: 'VTR-413687', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-29', isSample: true,
         clientCode: 'C11DIV01', clientNom: 'C11DIV01 — CLIENT DIVERS',
         depot: 'DP02 DEPOT RESTO', reference: '', repr: 'Aucun', affaire: 'Aucune', mode: 'Standard',
         numeroTable: '12', numeroChambre: '',
@@ -2313,7 +2322,7 @@ function seedSampleDocsIfEmpty(){
         savedAt: '2026-10-29T11:00:00.000Z'
       },
       {
-        num: 'VTR-413686', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-28',
+        num: 'VTR-413686', type: 'Proforma Vente', statut: 'Validée', date: '2026-10-28', isSample: true,
         clientCode: 'C11EXT01', clientNom: 'C11EXT01 — CLIENT EXTRA',
         depot: 'DP02 DEPOT RESTO', reference: 'EXP-992', repr: 'RABE Jean', affaire: 'AFF-001 Livraison zone nord', mode: 'Standard',
         numeroTable: '', numeroChambre: '31',
@@ -2326,7 +2335,7 @@ function seedSampleDocsIfEmpty(){
         savedAt: '2026-10-28T14:30:00.000Z'
       },
       {
-        num: 'VTR-413685', type: 'Proforma Vente', statut: 'Comptabilisée', date: '2026-10-27',
+        num: 'VTR-413685', type: 'Proforma Vente', statut: 'Comptabilisée', date: '2026-10-27', isSample: true,
         clientCode: 'C11AGE01', clientNom: 'C11AGE01 — MALAGASYA TRAVEL',
         depot: 'DP02 DEPOT RESTO', reference: '', repr: 'ANDRIANA Solo', affaire: 'AFF-002 Événement hôtel', mode: 'Express',
         numeroTable: '5', numeroChambre: '',
@@ -2339,7 +2348,7 @@ function seedSampleDocsIfEmpty(){
         savedAt: '2026-10-27T18:15:00.000Z'
       },
       {
-        num: 'VTR-413684', type: 'Proforma Vente', statut: 'Brouillon', date: '2026-10-26',
+        num: 'VTR-413684', type: 'Proforma Vente', statut: 'Brouillon', date: '2026-10-26', isSample: true,
         clientCode: 'C11DIV01', clientNom: 'C11DIV01 — CLIENT DIVERS',
         depot: 'DP02 DEPOT RESTO', reference: '', repr: 'Aucun', affaire: 'Aucune', mode: 'Retrait client',
         numeroTable: '', numeroChambre: '16',
@@ -2657,6 +2666,15 @@ async function syncRestoDocsNow(){
     try { localStorage.setItem(seenKey, JSON.stringify(remoteKeys)); } catch(e){}
     localStorage.setItem('nxm_docs', JSON.stringify(localList));
     if (typeof updateHistCount==='function') updateHistCount();
+    // Si le formulaire vierge affiche un numéro déjà pris par un document distant, régénérer aléatoirement
+    var curFNum = $('f-num') ? String($('f-num').value || '').trim().toUpperCase() : '';
+    if (curFNum && (!Array.isArray(lines) || lines.length === 0)) {
+      var curConflict = localList.some(function(d){ return String((d && (d.num || d.numero)) || '').trim().toUpperCase() === curFNum; });
+      if (curConflict) {
+        $('f-num').value = genNum();
+        if (typeof syncTitle === 'function') syncTitle();
+      }
+    }
 
     // Pousser automatiquement vers Supabase tout document local de cette société
     // qui n'est pas encore présent sur le serveur (rattrapage hors-ligne / échec antérieur)
@@ -2664,8 +2682,32 @@ async function syncRestoDocsNow(){
     var unsynced = localList.filter(function(d){
       var dCode = String(d.code_societe || 'EDEN01').trim().toUpperCase();
       var k = restoDocKey(d);
-      return dCode === curCode && k && !remoteSet.has(k) && !d.fromSupabase;
+      return dCode === curCode && k && !remoteSet.has(k) && !d.fromSupabase && !d.isSample;
     });
+    // Nettoyer les anciens doublons VTE- issus de Nexus_Resto (lorsqu'un VTR- correspondant existe ou l'ancien exemple VTE-413687)
+    var vtrSuffixes = new Set();
+    localList.concat(data).forEach(function(r){
+      var n = String((r && (r.num || r.numero)) || '').trim().toUpperCase();
+      var m = /^VTR-(\d+)$/.exec(n);
+      if (m) vtrSuffixes.add(m[1]);
+    });
+    var vteDuplicates = [];
+    localList = localList.filter(function(d){
+      var n = String((d && (d.num || d.numero)) || '').trim().toUpperCase();
+      var m = /^VTE-(\d+)$/.exec(n);
+      if (!m) return true;
+      var isDup = vtrSuffixes.has(m[1]) || (n === 'VTE-413687' && String(d.date || '') === '2026-10-29' && String(d.clientCode || '').toUpperCase() === 'C11DIV01');
+      if (isDup) { vteDuplicates.push(d.num || d.numero); return false; }
+      return true;
+    });
+    if (vteDuplicates.length > 0) {
+      localStorage.setItem('nxm_docs', JSON.stringify(localList));
+      vteDuplicates.forEach(function(dupNum){
+        if (!dupNum) return;
+        sb.from('documents_vente').delete().eq('numero', dupNum).then(function(){}).catch(function(){});
+        publishRestoDeletionTombstone('nexus_documents_vente', dupNum);
+      });
+    }
     for (var ui = 0; ui < unsynced.length; ui++) {
       var ld = unsynced[ui];
       var lLines = toNexusDocLines(ld.lines || ld.lignes || []);
