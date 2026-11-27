@@ -2402,38 +2402,47 @@ async function loadHistoriqueDocs(){
         .order('id', { ascending: false })
         .limit(100);
       if (!error && data && data.length) {
-        var numSet = new Set(docs.map(function(d){ return String(d.num || d.numero || '').replace(/\s+/g,'').toUpperCase(); }));
+        var idxByNum = {};
+        docs.forEach(function(d, idx){
+          var k = String(d.num || d.numero || '').replace(/\s+/g,'').toUpperCase();
+          if (k) idxByNum[k] = idx;
+        });
         data.forEach(function(row){
           var rawNum = String(row.numero || row.num || '').trim();
           var cleanNum = rawNum.replace(/\s+/g,'').toUpperCase();
-          if (cleanNum && !numSet.has(cleanNum)) {
-            var linesParsed = [];
-            if (typeof row.lignes === 'string') {
-              try { linesParsed = JSON.parse(row.lignes); } catch(e){}
-            } else if (Array.isArray(row.lignes)) {
-              linesParsed = row.lignes;
-            }
-            docs.push({
-              num: rawNum,
-              numero: rawNum,
-              type: row.type || 'Proforma Vente',
-              statut: row.statut || 'Brouillon',
-              date: row.date || '',
-              clientCode: row.clientCode || '',
-              clientNom: row.clientNom || row.tiers || '',
-              depot: row.depot || 'DP02 DEPOT RESTO',
-              reference: row.reference || row.refClient || '',
-              refClient: row.refClient || row.reference || '',
-              numeroTable: row.numeroTable || row.table || '',
-              numeroChambre: row.numeroChambre || row.chambre || '',
-              lines: linesParsed,
-              totalHT: Number(row.totalHT) || 0,
-              totalTVA: Number(row.totalTVA) || 0,
-              totalTTC: Number(row.totalTTC) || 0,
-              savedAt: row.created_at || (row.id ? new Date(row.id).toISOString() : new Date().toISOString()),
-              fromSupabase: true
-            });
-            numSet.add(cleanNum);
+          if (!cleanNum) return;
+          var linesParsed = [];
+          if (typeof row.lignes === 'string') {
+            try { linesParsed = JSON.parse(row.lignes); } catch(e){}
+          } else if (Array.isArray(row.lignes)) {
+            linesParsed = row.lignes;
+          }
+          var docObj = {
+            code_societe: row.code_societe || curCode,
+            num: rawNum,
+            numero: rawNum,
+            type: row.type || 'Proforma Vente',
+            statut: row.statut || 'Brouillon',
+            date: row.date || '',
+            clientCode: row.clientCode || '',
+            clientNom: row.clientNom || row.tiers || '',
+            depot: row.depot || 'DP02 DEPOT RESTO',
+            reference: row.reference || row.refClient || '',
+            refClient: row.refClient || row.reference || '',
+            numeroTable: row.numeroTable || row.table || '',
+            numeroChambre: row.numeroChambre || row.chambre || '',
+            lines: linesParsed,
+            totalHT: Number(row.totalHT) || 0,
+            totalTVA: Number(row.totalTVA) || 0,
+            totalTTC: Number(row.totalTTC) || 0,
+            savedAt: row.created_at || (row.id ? new Date(row.id).toISOString() : new Date().toISOString()),
+            fromSupabase: true
+          };
+          if (Object.prototype.hasOwnProperty.call(idxByNum, cleanNum)) {
+            docs[idxByNum[cleanNum]] = docObj;
+          } else {
+            idxByNum[cleanNum] = docs.length;
+            docs.push(docObj);
           }
         });
       }
@@ -2650,12 +2659,10 @@ async function syncRestoDocsNow(){
     var seenKey = 'nxm_resto_docs_seen_' + curCode;
     var seen = [];
     try { seen = JSON.parse(localStorage.getItem(seenKey) || '[]'); } catch(e){ seen = []; }
-    // Une clé vue précédemment mais absente du serveur n'est pas
-    // nécessairement une suppression : un document en attente d'un push
-    // raté doit pouvoir revenir dans le ratchet ci-dessous. Le cache local
-    // n'est donc purgé que si le document n'est plus présent dans la liste.
-    var localKeySet = new Set(localList.map(function(d){ return restoDocKey(d); }));
-    var removedSet = new Set(seen.filter(function(k){ return remoteKeys.indexOf(k) === -1 && !localKeySet.has(k); }));
+    // Seuls les documents locaux non encore envoyés vers Supabase (!fromSupabase)
+    // sont protégés contre la purge lors d'une suppression distante.
+    var localUnsyncedKeySet = new Set(localList.filter(function(d){ return !d.fromSupabase && !d.isSample; }).map(function(d){ return restoDocKey(d); }));
+    var removedSet = new Set(seen.filter(function(k){ return remoteKeys.indexOf(k) === -1 && !localUnsyncedKeySet.has(k); }));
     if (removedSet.size > 0) {
       localList = localList.filter(function(d){
         var dCode = String(d.code_societe || 'EDEN01').trim().toUpperCase();
@@ -2666,6 +2673,10 @@ async function syncRestoDocsNow(){
     try { localStorage.setItem(seenKey, JSON.stringify(remoteKeys)); } catch(e){}
     localStorage.setItem('nxm_docs', JSON.stringify(localList));
     if (typeof updateHistCount==='function') updateHistCount();
+    var histModalEl = $('hist-modal');
+    if (histModalEl && histModalEl.classList.contains('open') && typeof renderHistorique === 'function') {
+      renderHistorique();
+    }
     // Si le formulaire vierge affiche un numéro déjà pris par un document distant, régénérer aléatoirement
     var curFNum = $('f-num') ? String($('f-num').value || '').trim().toUpperCase() : '';
     if (curFNum && (!Array.isArray(lines) || lines.length === 0)) {
@@ -2737,8 +2748,12 @@ async function syncRestoDocsNow(){
       };
       var rPush = await upsertDocVenteWithFallback(sb, pushPayload, false, pushPayload.numero);
       if (rPush.ok) {
+        ld.fromSupabase = true;
         remoteKeys.push(restoDocKey(ld));
-        try { localStorage.setItem(seenKey, JSON.stringify(remoteKeys)); } catch(e){}
+        try {
+          localStorage.setItem(seenKey, JSON.stringify(remoteKeys));
+          localStorage.setItem('nxm_docs', JSON.stringify(localList));
+        } catch(e){}
         console.log('Document local rattrapé sur Supabase:', pushPayload.numero);
       }
     }
@@ -2797,8 +2812,33 @@ async function syncRestoClientsFromSupabase(){
 
 function startRestoSyncPoller(){
   if (window._restoSyncPoller) return;
-  window._restoSyncPoller = setInterval(function(){ syncRestoDocsNow(); syncRestoStockNow(); syncRestoClientsFromSupabase(); }, 30000);
-  syncRestoDocsNow(); syncRestoStockNow(); syncRestoClientsFromSupabase();
+  var runAll = function(){
+    syncRestoDocsNow();
+    syncRestoStockNow();
+    syncRestoClientsFromSupabase();
+  };
+  window._restoSyncPoller = setInterval(runAll, 30000);
+  window.addEventListener('online', runAll);
+  window.addEventListener('focus', runAll);
+  document.addEventListener('visibilitychange', function(){
+    if (document.visibilityState === 'visible') runAll();
+  });
+  var sb = getSupabase();
+  if (sb && typeof sb.channel === 'function' && !window._restoRealtimeCh) {
+    try {
+      var rtTimer = null;
+      var scheduleSync = function(fn){
+        clearTimeout(rtTimer);
+        rtTimer = setTimeout(fn, 350);
+      };
+      window._restoRealtimeCh = sb.channel('nexus-resto-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'documents_vente' }, function(){ scheduleSync(syncRestoDocsNow); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'stock_items' }, function(){ scheduleSync(syncRestoStockNow); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'plan_tiers' }, function(){ scheduleSync(syncRestoClientsFromSupabase); })
+        .subscribe();
+    } catch(e) { console.warn('Realtime Nexus_Resto:', e); }
+  }
+  runAll();
 }
 
 // Supprime les lignes d'une table par clé métier en essayant les variantes
@@ -3396,9 +3436,15 @@ function defSaveAndClose(){
 }
 
 
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js').then(function(reg){
-    reg.update();
+// Service Worker supprimé : désenregistrement et purge des anciens caches
+if ('caches' in window) {
+  caches.keys().then(function(keys){
+    keys.forEach(function(k){ caches.delete(k); });
+  }).catch(function(){});
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    regs.forEach(function(reg){ reg.unregister(); });
   }).catch(function(){});
 }
 document.addEventListener('DOMContentLoaded',init);
